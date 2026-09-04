@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - USJ MOU Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root { --usj-gold: #D4AF37; --usj-blue: #1a365d; }
+        body { background-color: #f8f9fa; }
+        .navbar { background: linear-gradient(135deg, var(--usj-blue) 0%, #2d4a7c 100%); }
+        .page-card { background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 2rem; }
+        .btn-gold { background: var(--usj-gold); border: none; color: white; }
+        .btn-gold:hover { background: #b89628; color: white; }
+        .settings-section { border-left: 4px solid var(--usj-gold); padding-left: 1rem; margin-bottom: 1.5rem; }
+        .settings-section h6 { color: var(--usj-blue); font-weight: 700; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.5px; }
+        .env-note { font-size: 0.78rem; color: #6c757d; }
+        .pw-hint { font-size: 0.78rem; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark mb-4">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">&#9881;&#65039; USJ MOU Dashboard - Settings</span>
+            <div class="d-flex gap-2 align-items-center">
+                <a href="{{ prefix }}/" class="btn btn-outline-light btn-sm">&#8592; Back to Dashboard</a>
+                <span class="text-light small">{{ current_user.full_name or current_user.username }} ({{ current_user.role }})</span>
+                <a href="{{ prefix }}/logout" class="btn btn-outline-light btn-sm">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4" style="max-width: 900px;">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="page-card">
+            <h4 class="mb-1" style="color: var(--usj-blue); font-weight: 700;">System Settings</h4>
+            <p class="env-note mb-4">Saved values take effect immediately and override the server's <code>.env</code> file. Values below show the currently effective setting (from here or <code>.env</code>).</p>
+
+            <form method="POST" action="{{ prefix }}/admin/settings">
+                <div class="settings-section">
+                    <h6>&#127970; Institution Mode</h6>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="INSTITUTION_MODE" id="modeConsortium" value="consortium" {{ 'checked' if values.INSTITUTION_MODE != 'single' }} onchange="toggleMode()">
+                        <label class="form-check-label" for="modeConsortium">
+                            <strong>Consortium / multiple institutions</strong>
+                            <div class="env-note">Every MOU lists all relevant parties &#8212; you add each institution manually.</div>
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="INSTITUTION_MODE" id="modeSingle" value="single" {{ 'checked' if values.INSTITUTION_MODE == 'single' }} onchange="toggleMode()">
+                        <label class="form-check-label" for="modeSingle">
+                            <strong>Single university</strong>
+                            <div class="env-note">Your institution is always one of the signatories &#8212; you only add the other parties.</div>
+                        </label>
+                    </div>
+                    <div class="mt-2 {{ 'd-none' if values.INSTITUTION_MODE != 'single' }}" id="ownInstBox">
+                        <label class="form-label fw-semibold mb-1">Your institution name</label>
+                        <input type="text" class="form-control" name="OWN_INSTITUTION" value="{{ values.OWN_INSTITUTION }}" placeholder="e.g. University of Saint Joseph">
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h6>&#128231; Expiry Notification Emails <span class="env-note">(sent daily at 09:00)</span></h6>
+                    <div class="row g-2">
+                        <div class="col-md-6"><label class="form-label">SMTP Server</label><input type="text" class="form-control" name="SMTP_SERVER" value="{{ values.SMTP_SERVER }}" placeholder="e.g. smtp.gmail.com"></div>
+                        <div class="col-md-3"><label class="form-label">Port</label><input type="text" class="form-control" name="SMTP_PORT" value="{{ values.SMTP_PORT }}" placeholder="587"></div>
+                        <div class="col-md-3"><label class="form-label">Username</label><input type="text" class="form-control" name="SMTP_USERNAME" value="{{ values.SMTP_USERNAME }}"></div>
+                        <div class="col-md-6">
+                            <label class="form-label">Password</label>
+                            <input type="password" class="form-control" name="SMTP_PASSWORD" placeholder="Leave blank to keep current" autocomplete="new-password">
+                            <div class="pw-hint {{ 'text-success' if pw_set.SMTP_PASSWORD else 'text-muted' }}">{{ '&#10004; currently set' if pw_set.SMTP_PASSWORD else 'not set' }}</div>
+                        </div>
+                        <div class="col-md-3"><label class="form-label">From Address</label><input type="text" class="form-control" name="SMTP_FROM" value="{{ values.SMTP_FROM }}"></div>
+                        <div class="col-md-3"><label class="form-label">Send Alerts To</label><input type="text" class="form-control" name="SMTP_TO" value="{{ values.SMTP_TO }}" placeholder="name@university.edu"></div>
+                    </div>
+                    <div class="mt-2 d-flex gap-2 align-items-center flex-wrap">
+                        <input type="email" class="form-control form-control-sm" id="testToNotif" placeholder="Send test to..." style="max-width: 220px;">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="testSmtp('notifications', 'testToNotif', 'notifResult')">&#9993;&#65039; Send Test Email</button>
+                        <span id="notifResult" class="pw-hint"></span>
+                    </div>
+                    <div class="env-note mt-1">The test uses the <strong>saved</strong> settings &#8212; press Save first.</div>
+                </div>
+
+                <div class="settings-section">
+                    <h6>&#128229; "Send MOU File by Email" <span class="env-note">(button in Manage MOUs)</span></h6>
+                    <div class="row g-2">
+                        <div class="col-md-4"><label class="form-label">SMTP Host</label><input type="text" class="form-control" name="SMTP_HOST" value="{{ values.SMTP_HOST }}" placeholder="e.g. smtp.gmail.com"></div>
+                        <div class="col-md-4"><label class="form-label">Username</label><input type="text" class="form-control" name="SMTP_USER" value="{{ values.SMTP_USER }}"></div>
+                        <div class="col-md-4">
+                            <label class="form-label">Password</label>
+                            <input type="password" class="form-control" name="SMTP_PASS" placeholder="Leave blank to keep current" autocomplete="new-password">
+                            <div class="pw-hint {{ 'text-success' if pw_set.SMTP_PASS else 'text-muted' }}">{{ '&#10004; currently set' if pw_set.SMTP_PASS else 'not set' }}</div>
+                        </div>
+                        <div class="col-md-6"><label class="form-label">Sender Address</label><input type="text" class="form-control" name="SMTP_SENDER" value="{{ values.SMTP_SENDER }}"></div>
+                    </div>
+                    <div class="mt-2 d-flex gap-2 align-items-center flex-wrap">
+                        <input type="email" class="form-control form-control-sm" id="testToFile" placeholder="Send test to..." style="max-width: 220px;">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="testSmtp('file', 'testToFile', 'fileResult')">&#9993;&#65039; Send Test Email</button>
+                        <span id="fileResult" class="pw-hint"></span>
+                    </div>
+                    <div class="env-note mt-1">The test uses the <strong>saved</strong> settings &#8212; press Save first.</div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-gold">&#128190; Save Settings</button>
+                    <a href="{{ prefix }}/" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function toggleMode() {
+            var single = document.getElementById('modeSingle').checked;
+            document.getElementById('ownInstBox').classList.toggle('d-none', !single);
+        }
+        toggleMode();
+
+        async function testSmtp(which, inputId, resultId) {
+            var email = document.getElementById(inputId).value.trim();
+            var out = document.getElementById(resultId);
+            if (!email) { out.innerHTML = '<span class="text-danger">Enter a recipient email address first.</span>'; return; }
+            out.innerHTML = '<span class="text-muted">Sending test email...</span>';
+            try {
+                const res = await fetch('{{ prefix }}/admin/settings/test-smtp', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email: email, which: which })
+                });
+                const d = await res.json();
+                out.innerHTML = d.success
+                    ? '<span class="text-success">&#10004; ' + d.message + '</span>'
+                    : '<span class="text-danger">&#10006; ' + d.message + '</span>';
+            } catch (e) {
+                out.innerHTML = '<span class="text-danger">Error: ' + e + '</span>';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+# MOU Dashboard - Cron Job Configuration
+# 
+# Install with: crontab mou-dashboard.cron
+# Or add manually: crontab -e
+#
+# This runs the expiry notification script daily at 9:00 AM
+
+# Environment setup
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+MAILTO=""  # Set to your email if you want cron emails
+
+# Send MOU expiry notifications daily at 9:00 AM
+0 9 * * * cd /var/www/mou-dashboard/mou-dashboard && /var/www/mou-dashboard/mou-dashboard/venv/bin/python3 /var/www/mou-dashboard/mou-dashboard/send_notifications.py >> /var/log/mou-dashboard-notifications.log 2>&1
+
+# Optional: Backup database weekly on Sundays at 2:00 AM
+# 0 2 * * 0 cp /var/www/mou-dashboard/mou-dashboard/instance/mou.db /backup/mou-backup-$(date +\%Y\%m\%d).db

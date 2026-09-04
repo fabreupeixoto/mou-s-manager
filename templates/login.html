@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - USJ MOU Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --usj-gold: #D4AF37;
+            --usj-blue: #1a365d;
+        }
+        body {
+            background: linear-gradient(135deg, #1a365d 0%, #2d4a7c 50%, #1a365d 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 3rem;
+            max-width: 420px;
+            width: 100%;
+        }
+        .login-logo {
+            text-align: center;
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+        .login-title {
+            text-align: center;
+            color: var(--usj-blue);
+            font-weight: 700;
+            font-size: 1.5rem;
+            margin-bottom: 0.25rem;
+        }
+        .login-subtitle {
+            text-align: center;
+            color: #6c757d;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+        .form-label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9rem;
+        }
+        .form-control {
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e9ecef;
+        }
+        .form-control:focus {
+            border-color: var(--usj-gold);
+            box-shadow: 0 0 0 0.2rem rgba(212, 175, 55, 0.25);
+        }
+        .btn-login {
+            background: var(--usj-gold);
+            border: none;
+            color: white;
+            padding: 0.75rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            width: 100%;
+        }
+        .btn-login:hover {
+            background: #b89628;
+            color: white;
+        }
+        .form-check-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="login-logo">&#127891;</div>
+        <h1 class="login-title">USJ MOU Dashboard</h1>
+        <p class="login-subtitle">University of Saint Joseph</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show py-2" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ prefix }}/login">
+            <div class="mb-3">
+                <label class="form-label">Username</label>
+                <input type="text" class="form-control" name="username" required autofocus autocomplete="username" placeholder="Enter username">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-control" name="password" required autocomplete="current-password" placeholder="Enter password">
+            </div>
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="remember" name="remember">
+                <label class="form-check-label" for="remember">Remember me</label>
+            </div>
+            <button type="submit" class="btn btn-login">Sign In</button>
+        </form>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

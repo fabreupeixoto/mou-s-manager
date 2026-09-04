@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if can_manage %}Manage MOUs{% else %}MOU Directory{% endif %} - USJ MOU Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root { --usj-gold: #D4AF37; --usj-blue: #1a365d; }
+        body { background: #f8f9fa; }
+        .navbar { background: linear-gradient(135deg, var(--usj-blue) 0%, #2d4a7c 100%); }
+        .nav-tabs .nav-link.active { color: var(--usj-blue) !important; font-weight: 600; border-bottom: 3px solid var(--usj-gold); }
+        .nav-tabs .nav-link { color: #6c757d; }
+        .table th { background: #f8f9fa; position: sticky; top: 0; user-select: none; }
+        .table th .sort-icon { opacity: 0.3; margin-left: 3px; }
+        .table th:hover .sort-icon { opacity: 0.7; }
+        .table th .sort-icon.active { opacity: 1; color: var(--usj-gold); }
+        .th-sortable { cursor: pointer; white-space: nowrap; }
+        .th-sortable:hover { background: #e9ecef !important; }
+        .search-box { max-width: 250px; }
+        .btn-gold { background: var(--usj-gold); border: none; color: white; }
+        .btn-gold:hover { background: #b89628; color: white; }
+        .drop-zone { border: 3px dashed #dee2e6; border-radius: 12px; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.3s; background: #fafafa; }
+        .drop-zone:hover, .drop-zone.dragover { border-color: var(--usj-gold); background: #fffdf5; }
+        .drop-zone.has-file { border-color: #28a745; background: #f0fff4; }
+        #fileInput { display: none; }
+        .file-info { display: none; }
+        .file-info.show { display: flex; align-items: center; gap: 0.5rem; }
+        .search-wrap { position: relative; }
+        .search-wrap .clear-btn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); border: none; background: none; color: #999; cursor: pointer; display: none; padding: 0 4px; font-size: 1.1rem; line-height: 1; }
+        .search-wrap .clear-btn:hover { color: #333; }
+        .search-wrap .clear-btn.visible { display: block; }
+        .filter-badge { cursor: pointer; }
+        .btn-outline-gold { background: transparent; border: 1px solid var(--usj-gold); color: var(--usj-gold); }
+        .btn-outline-gold:hover { background: var(--usj-gold); color: white; }
+        .pdf-badge { display: inline-block; background: #dc3545; color: white; font-size: 8px; font-weight: bold; padding: 2px 5px; border-radius: 3px; line-height: 1; text-decoration: none; }
+        .pdf-badge:hover { background: #b02a37; color: white; text-decoration: none; }
+        .partner-card { border: 1px solid #dee2e6; border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem; background: #fcfdff; }
+        .partner-card .partner-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+        .partner-card .partner-title { font-weight: 600; color: var(--usj-blue); font-size: 0.95rem; }
+        .signee-row { display: flex; gap: 0.4rem; margin-bottom: 0.35rem; align-items: center; }
+        .scope-faculty-box { border: 1px dashed #ced4da; border-radius: 10px; padding: 0.75rem; background: #fffdf5; }
+        .view-partner { border-left: 3px solid var(--usj-gold); padding-left: 0.75rem; margin-bottom: 0.75rem; }
+        .view-partner .vp-inst { font-weight: 600; color: var(--usj-blue); }
+        .view-partner .vp-sub { color: #6c757d; font-size: 0.85rem; }
+        .view-partner .vp-fac { color: #5a6b7f; font-size: 0.85rem; font-style: italic; margin-top: 0.1rem; }
+        .view-partner ul { margin: 0.25rem 0 0; padding-left: 1.1rem; font-size: 0.85rem; }
+        .p-fac-chip { cursor: default; }
+        .p-fac-chip a { text-decoration: none; }
+        .p-fac-input-wrap { position: relative; }
+        .fac-suggest { position: absolute; top: 100%; left: 0; right: 0; z-index: 1060; background: #fff; border: 1px solid #dee2e6; border-radius: 8px; max-height: 200px; overflow-y: auto; display: none; box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+        .fac-suggest .s-item { padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #f1f3f5; font-size: 0.85rem; }
+        .fac-suggest .s-item:last-child { border-bottom: none; }
+        .fac-suggest .s-item:hover { background: #f0f6ff; }
+        .p-inst-wrap { position: relative; }
+        .inst-suggest { position: absolute; top: 100%; left: 0; right: 0; z-index: 1060; background: #fff; border: 1px solid #dee2e6; border-radius: 8px; max-height: 220px; overflow-y: auto; display: none; box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+        .inst-suggest .s-item { padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #f1f3f5; font-size: 0.85rem; }
+        .inst-suggest .s-item:last-child { border-bottom: none; }
+        .inst-suggest .s-item:hover { background: #f0f6ff; }
+        .inst-suggest .s-meta { color: #6c757d; font-size: 0.75rem; }
+        .inst-suggest .s-badge { display: inline-block; background: #fff3cd; color: #664d03; font-size: 0.7rem; font-weight: 600; padding: 1px 6px; border-radius: 4px; margin-left: 4px; }
+        .multi-partners td, .multi-partners { line-height: 1.35; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark mb-4">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">{% if can_manage %}&#9881;&#65039; Manage MOUs{% else %}&#128269; MOU Directory{% endif %}</span>
+            <div class="d-flex gap-2 align-items-center">
+                <a href="{{ base_url }}/" class="btn btn-outline-light btn-sm">&larr; Dashboard</a>
+                {% if current_user.is_authenticated %}
+                <button class="btn btn-outline-light btn-sm" onclick="exportPDF()">&#128196; Export PDF</button>
+                <button class="btn btn-outline-light btn-sm" onclick="exportCSV()">&#128193; Export CSV</button>
+                <button class="btn btn-outline-light btn-sm" onclick="showAnalyticsModal()">&#128202; Analytics Export</button>
+                <a href="{{ base_url }}/logout" class="btn btn-outline-danger btn-sm">&#10149; Logout</a>
+                {% else %}
+                <a href="{{ base_url }}/login" class="btn btn-gold btn-sm">&#10149; Login</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4">
+        <ul class="nav nav-tabs mb-4" id="manageTabs">
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#listTab">&#128203; MOU List</button></li>
+            {% if can_manage %}
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#addTab">&#10133; Add MOU</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#csvTab">&#128193; CSV Import</button></li>
+            {% endif %}
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="listTab">
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <div class="d-flex gap-2 align-items-center">
+                        <div class="search-wrap">
+                            <input type="text" class="form-control search-box" id="searchInput" placeholder="Search institution..." oninput="onSearch()">
+                            <button class="clear-btn" id="searchClear" onclick="clearSearch()">&times;</button>
+                        </div>
+                        <div class="search-wrap">
+                            <input type="text" class="form-control search-box" id="countrySearchInput" placeholder="Search country..." oninput="onSearch()">
+                            <button class="clear-btn" id="countrySearchClear" onclick="clearCountrySearch()">&times;</button>
+                        </div>
+                        <span class="text-muted small" id="mouCount"></span>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                        <a href="{{ base_url }}/manage" class="btn btn-sm btn-outline-secondary" id="showAllBtn" style="display:none">&larr; Show all MOUs</a>
+                        <select class="form-select form-select-sm" style="width: auto;" id="statusFilter" onchange="loadMOUs(1)">
+                            <option value="">All statuses</option>
+                            <option value="ACTIVE">ACTIVE</option>
+                            <option value="NOT ACTIVE">NOT ACTIVE</option>
+                            <option value="UNKNOWN">UNKNOWN</option>
+                        </select>
+                        {% if current_user.is_authenticated %}
+                        <select class="form-select form-select-sm" style="width: auto;" id="fileFilter" onchange="loadMOUs(1)">
+                            <option value="">All files</option>
+                            <option value="has">Has PDF</option>
+                            <option value="missing">Missing PDF</option>
+                        </select>
+                        {% endif %}
+                        <select class="form-select form-select-sm" style="width: auto;" id="expiryFilter" onchange="loadMOUs(1)">
+                            <option value="">All expiry</option>
+                            <option value="expired">Expired</option>
+                            <option value="30">Within 30 days</option>
+                            <option value="60">Within 60 days</option>
+                            <option value="90">Within 90 days</option>
+                            <option value="180">Within 180 days</option>
+                        </select>
+                        <select class="form-select form-select-sm" style="width: auto;" id="perPageSelect" onchange="loadMOUs(1)">
+                            <option value="20">20 per page</option>
+                            <option value="50" selected>50 per page</option>
+                            <option value="100">100 per page</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-responsive" style="max-height: 600px;">
+                    <table class="table table-sm table-hover table-bordered">
+                        <thead><tr>
+                            <th class="th-sortable" onclick="sortBy('institution_number')"># <span class="sort-icon" id="ico-institution_number">&#9650;</span></th>
+                            <th class="th-sortable" onclick="sortBy('institution')">Institution <span class="sort-icon" id="ico-institution">&#9650;</span></th>
+                            <th class="th-sortable" onclick="sortBy('country')">Country <span class="sort-icon" id="ico-country">&#9650;</span></th>
+                            <th class="th-sortable" onclick="sortBy('status')" style="min-width:110px">Status <span class="sort-icon" id="ico-status">&#9650;</span></th>
+                            <th class="th-sortable" onclick="sortBy('signed_date')">Signed <span class="sort-icon" id="ico-signed_date">&#9650;</span></th>
+                            <th class="th-sortable" onclick="sortBy('expiry_date')">Expiry <span class="sort-icon" id="ico-expiry_date">&#9650;</span></th>
+                            {% if current_user.is_authenticated %}<th>File</th>{% endif %}
+                            <th>Actions</th>
+                        </tr></thead>
+                        <tbody id="mouTableBody"></tbody>
+                    </table>
+                </div>
+                <nav><ul class="pagination pagination-sm" id="mouPagination"></ul></nav>
+            </div>
+
+            <div class="tab-pane fade" id="addTab">
+                <div class="card" style="max-width: 800px;">
+                    <div class="card-body">
+                        <h5 class="card-title">New MOU</h5>
+                        <form id="addMouForm">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Scope</label>
+                                <div>
+                                    <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="addScope" id="addScopeUni" value="university" checked onchange="setScope('add')"><label class="form-check-label" for="addScopeUni">University-level</label></div>
+                                    <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="addScope" id="addScopeFac" value="faculty" onchange="setScope('add')"><label class="form-check-label" for="addScopeFac">Faculty-level</label></div>
+                                </div>
+                            </div>
+                            {% if own_institution %}
+                            <div class="alert alert-secondary py-2 small">
+                                Each MOU is signed between <strong>{{ own_institution }}</strong> and the partner institutions listed below &#8212; only add the other parties.
+                            </div>
+                            {% endif %}
+                            <label class="form-label fw-bold">Partner Institutions <span class="text-danger">*</span></label>
+                            <div id="addPartners"></div>
+                            <button type="button" class="btn btn-sm btn-outline-primary mb-3" onclick="addPartnerRow('addPartners')">+ Add Partner Institution</button>
+                            <div class="row g-3">
+                                <div class="col-md-3"><label class="form-label">Signed Date</label><input type="text" class="form-control" name="signed_date" placeholder="dd.mm.yyyy"></div>
+                                <div class="col-md-3"><label class="form-label">Expiry Date</label><input type="text" class="form-control" name="expiry_date" placeholder="dd.mm.yyyy"></div>
+                                <div class="col-md-3"><label class="form-label">Duration</label><input type="text" class="form-control" name="duration" placeholder="e.g. 5 years"></div>
+                                <div class="col-md-3"><label class="form-label">Status</label>
+                                    <select class="form-select" name="status">
+                                        <option value="ACTIVE">ACTIVE</option>
+                                        <option value="NOT ACTIVE">NOT ACTIVE</option>
+                                        <option value="UNKNOWN">UNKNOWN</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3"><label class="form-label">Notice Period</label><input type="text" class="form-control" name="notice_period" placeholder="e.g. 6 months"></div>
+                                <div class="col-md-3"><label class="form-label">Website Status</label><input type="text" class="form-control" name="website_status"></div>
+                                <div class="col-md-12"><label class="form-label">Renewal Terms</label><textarea class="form-control" name="renewal_terms" rows="2"></textarea></div>
+                                <div class="col-md-12"><label class="form-label">Additional Info</label><textarea class="form-control" name="additional_info" rows="2"></textarea></div>
+                                <div class="col-md-12"><label class="form-label">Mobility Info</label><textarea class="form-control" name="mobility_info" rows="2"></textarea></div>
+                                <div class="col-md-12"><label class="form-label">Other Projects</label><textarea class="form-control" name="other_projects" rows="2"></textarea></div>
+                                <div class="col-md-12">
+                                    <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="portuguese_speaking" value="1"><label class="form-check-label">Portuguese-Speaking</label></div>
+                                    <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="asean" value="1"><label class="form-check-label">ASEAN</label></div>
+                                    <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="mobility_available" value="1"><label class="form-check-label">Mobility Available</label></div>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2 mt-3">
+                                <button type="submit" class="btn btn-gold" name="action" value="save">&#128190; Save</button>
+                                <button type="submit" class="btn btn-outline-gold" name="action" value="save_close">&#128190; Save &amp; Close</button>
+                            </div>
+                            <div id="addResult" class="mt-2"></div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="csvTab">
+                <div class="card" style="max-width: 600px;">
+                    <div class="card-body">
+                        <h5 class="card-title">&#128193; Import from CSV</h5>
+                        <div class="alert alert-danger border-danger">
+                            <strong>&#9888;&#65039; DANGER &#9888;&#65039;</strong> This action is <strong>irreversible</strong>. It will <strong>permanently delete ALL existing MOUs</strong> (including uploaded PDF files) and rebuild the entire database from the CSV file.
+                            <ul class="mb-0 mt-2">
+                                <li>Any MOUs added manually will be <strong>lost</strong>.</li>
+                                <li>Any PDF files uploaded for existing MOUs will be <strong>orphaned</strong>.</li>
+                                <li>Use this only for a full restore from a verified backup CSV.</li>
+                                <li>You will be asked to confirm with the management password before the import proceeds.</li>
+                                <li>A timestamped backup of the database will be created automatically before importing (last 10 kept).</li>
+                            </ul>
+                        </div>
+                        <form id="csvUploadForm" method="POST" enctype="multipart/form-data">
+                            <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                                <div style="font-size: 2rem;">&#128196;</div>
+                                <div><strong>Click to browse</strong> or drag CSV here</div>
+                                <small class="text-muted">Only .csv files accepted</small>
+                                <input type="file" id="fileInput" name="file" accept=".csv">
+                            </div>
+                            <div class="file-info" id="fileInfo">
+                                <span id="fileName"></span>
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearFile()">&#10005;</button>
+                            </div>
+                            <button type="submit" class="btn btn-gold mt-3" id="csvUploadBtn" disabled>&#128229; Import Data</button>
+                        </form>
+                        <div id="csvResult" class="mt-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="analyticsModal" tabindex="-1">
+        <div class="modal-dialog"><div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">&#128202; Analytics Export - Select Charts</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <p class="text-muted small">Select which analytics to include in the JPG image. The image is suitable for meetings and reports.</p>
+                <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="opt_stats" checked><label class="form-check-label" for="opt_stats">Summary Stats Cards (Total, Active, Not Active, Expiring, etc.)</label></div>
+                <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="opt_status_pie" checked><label class="form-check-label" for="opt_status_pie">Status Distribution (pie chart)</label></div>
+                <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="opt_country_bar" checked><label class="form-check-label" for="opt_country_bar">Top 15 Countries (horizontal bar chart)</label></div>
+                <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="opt_expiry_timeline"><label class="form-check-label" for="opt_expiry_timeline">Expiry Timeline - next 12 months (area line chart)</label></div>
+                <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="opt_regional_pie"><label class="form-check-label" for="opt_regional_pie">Regional Distribution (pie chart)</label></div>
+                <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="opt_flags_bar"><label class="form-check-label" for="opt_flags_bar">Special Filters Distribution (bar chart: Portuguese, ASEAN, Mobility, etc.)</label></div>
+                <div id="analyticsResult" class="mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-gold" onclick="exportAnalytics()">&#128190; Generate JPG</button>
+            </div>
+        </div></div>
+    </div>
+
+    <div class="modal fade" id="pdfModal" tabindex="-1">
+        <div class="modal-dialog modal-xl"><div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="pdfModalTitle">Signed MOU Document</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3 d-flex gap-2 flex-wrap align-items-center">
+                    <a href="#" class="btn btn-sm btn-gold" id="pdfDownloadBtn">&#11015; Download</a>
+                    {% if can_manage %}
+                    <div class="input-group input-group-sm" style="max-width: 350px;">
+                        <input type="email" class="form-control" id="pdfEmailInput" placeholder="recipient@email.com">
+                        <button class="btn btn-outline-secondary" onclick="sendFileEmail()">&#9993; Send</button>
+                    </div>
+                    <span id="pdfEmailResult" class="small"></span>
+                    {% endif %}
+                </div>
+                <iframe id="pdfIframe" style="width:100%; height: 500px; border: 1px solid #dee2e6; border-radius: 8px;" src=""></iframe>
+            </div>
+        </div></div>
+    </div>
+
+    <div class="modal fade" id="viewModal" tabindex="-1">
+        <div class="modal-dialog modal-lg"><div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">MOU Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-12">
+                        <label class="form-label fw-bold">Partner Institutions</label>
+                        <div id="viewOwn" class="small text-muted mb-1"></div>
+                        <div id="viewPartners">-</div>
+                    </div>
+                    <div class="col-md-6"><label class="form-label fw-bold">Scope</label><div class="form-control-plaintext" id="viewScope">-</div></div>
+                    <div class="col-md-6"><label class="form-label fw-bold">Linked Faculties</label><div class="form-control-plaintext" id="viewFaculties">-</div></div>
+                    <div class="col-md-3"><label class="form-label fw-bold">Signed Date</label><div class="form-control-plaintext" id="viewSigned">-</div></div>
+                    <div class="col-md-3"><label class="form-label fw-bold">Expiry Date</label><div class="form-control-plaintext" id="viewExpiry">-</div></div>
+                    <div class="col-md-3"><label class="form-label fw-bold">Duration</label><div class="form-control-plaintext" id="viewDuration">-</div></div>
+                    <div class="col-md-3"><label class="form-label fw-bold">Status</label><div class="form-control-plaintext" id="viewStatus">-</div></div>
+                    <div class="col-md-3"><label class="form-label fw-bold">Notice Period</label><div class="form-control-plaintext" id="viewNotice">-</div></div>
+                    <div class="col-md-3"><label class="form-label fw-bold">Website Status</label><div class="form-control-plaintext" id="viewWebsite">-</div></div>
+                    <div class="col-md-12"><label class="form-label fw-bold">Renewal Terms</label><div class="form-control-plaintext" id="viewRenewal">-</div></div>
+                    <div class="col-md-12"><label class="form-label fw-bold">Additional Info</label><div class="form-control-plaintext" id="viewAdditional">-</div></div>
+                    <div class="col-md-12"><label class="form-label fw-bold">Mobility Info</label><div class="form-control-plaintext" id="viewMobilityInfo">-</div></div>
+                    <div class="col-md-12"><label class="form-label fw-bold">Other Projects</label><div class="form-control-plaintext" id="viewOther">-</div></div>
+                    <div class="col-md-12">
+                        <label class="form-label fw-bold">Flags</label>
+                        <div class="form-control-plaintext" id="viewFlags">-</div>
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label fw-bold">Signed MOU File</label>
+                        <div class="form-control-plaintext" id="viewFile">-</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                {% if can_manage %}
+                <button type="button" class="btn btn-gold" id="viewEditBtn" onclick="viewToEdit()">&#9997;&#65039; Edit</button>
+                {% endif %}
+            </div>
+        </div></div>
+    </div>
+
+    <div class="modal fade" id="editModal" tabindex="-1">
+        <div class="modal-dialog modal-lg"><div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Edit MOU</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <form id="editMouForm">
+                    <input type="hidden" id="editId">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Scope</label>
+                        <div>
+                            <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="editScope" id="editScopeUni" value="university" checked onchange="setScope('edit')"><label class="form-check-label" for="editScopeUni">University-level</label></div>
+                            <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="editScope" id="editScopeFac" value="faculty" onchange="setScope('edit')"><label class="form-check-label" for="editScopeFac">Faculty-level</label></div>
+                        </div>
+                    </div>
+                    {% if own_institution %}
+                    <div class="alert alert-secondary py-2 small">
+                        Each MOU is signed between <strong>{{ own_institution }}</strong> and the partner institutions listed below &#8212; only add the other parties.
+                    </div>
+                    {% endif %}
+                    <label class="form-label fw-bold">Partner Institutions <span class="text-danger">*</span></label>
+                    <div id="editPartners"></div>
+                    <button type="button" class="btn btn-sm btn-outline-primary mb-3" onclick="addPartnerRow('editPartners')">+ Add Partner Institution</button>
+                    <div class="row g-3">
+                        <div class="col-md-3"><label class="form-label">Signed Date</label><input type="text" class="form-control" id="editSigned" placeholder="dd.mm.yyyy"></div>
+                        <div class="col-md-3"><label class="form-label">Expiry Date</label><input type="text" class="form-control" id="editExpiry" placeholder="dd.mm.yyyy"></div>
+                        <div class="col-md-3"><label class="form-label">Duration</label><input type="text" class="form-control" id="editDuration" placeholder="e.g. 5 years"></div>
+                        <div class="col-md-3"><label class="form-label">Status</label>
+                            <select class="form-select" id="editStatus"><option>ACTIVE</option><option>NOT ACTIVE</option><option>UNKNOWN</option></select>
+                        </div>
+                        <div class="col-md-3"><label class="form-label">Notice Period</label><input type="text" class="form-control" id="editNotice" placeholder="e.g. 6 months"></div>
+                        <div class="col-md-3"><label class="form-label">Website Status</label><input type="text" class="form-control" id="editWebsite"></div>
+                        <div class="col-md-12"><label class="form-label">Renewal Terms</label><textarea class="form-control" id="editRenewal" rows="2"></textarea></div>
+                        <div class="col-md-12"><label class="form-label">Additional Info</label><textarea class="form-control" id="editAdditional" rows="2"></textarea></div>
+                        <div class="col-md-12"><label class="form-label">Mobility Info</label><textarea class="form-control" id="editMobilityInfo" rows="2"></textarea></div>
+                        <div class="col-md-12"><label class="form-label">Other Projects</label><textarea class="form-control" id="editOther" rows="2"></textarea></div>
+                        <div class="col-md-12">
+                            <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="editPortuguese"><label class="form-check-label">Portuguese-Speaking</label></div>
+                            <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="editAsean"><label class="form-check-label">ASEAN</label></div>
+                            <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="editMobility"><label class="form-check-label">Mobility Available</label></div>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Signed MOU File</label>
+                            <div class="d-flex gap-2 align-items-center" id="editFileDisplay"></div>
+                            <input type="file" class="form-control mt-1" id="editFileUpload" accept=".pdf,.doc,.docx,.jpg,.png">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <div id="editResult" class="me-auto"></div>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-outline-gold" onclick="saveEdit(false)">&#128190; Save</button>
+                <button type="button" class="btn btn-gold" onclick="saveEdit(true)">&#128190; Save &amp; Close</button>
+            </div>
+        </div></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const BASE = '{{ base_url }}';
+        const CAN_MANAGE = {{ 'true' if can_manage else 'false' }};
+        const CAN_VIEW_FILES = {{ 'true' if current_user.is_authenticated else 'false' }};
+        const FACULTIES = {{ faculties|tojson }};
+        const SINGLE_MODE = {{ 'true' if SINGLE_MODE else 'false' }};
+        const OWN_INSTITUTION = {{ (own_institution or '')|tojson }};
+        let currentPage = 1, currentSort = 'institution', currentOrder = 'asc';
+        let extraFilters = {};
+
+        function partnerCardHTML() {
+            var facHTML = SINGLE_MODE
+                ? '<div class="mt-2 p-fac-wrap d-none">'
+                + '<div class="mb-2"><label class="form-label mb-1"><strong>Our Faculties</strong> <small class="text-muted">(registered at our university)</small></label>'
+                + '<div class="p-fac-chips d-flex flex-wrap gap-1 mb-1"></div>'
+                + '<div class="p-fac-input-wrap position-relative"><input type="text" class="form-control form-control-sm p-fac-input" autocomplete="off" placeholder="Type to search registered faculties..."><div class="fac-suggest"></div></div></div>'
+                + '<div><label class="form-label mb-1"><strong>Partner\'s Faculties</strong> <small class="text-muted">(faculties at this institution)</small></label>'
+                + '<input type="text" class="form-control form-control-sm p-fac-partner-text" placeholder="e.g. Faculty of Medicine; Faculty of Law"></div>'
+                + '</div>'
+                : '<div class="mt-2 p-fac-wrap d-none"><label class="form-label mb-1"><strong>Faculties</strong> <small class="text-muted">(for this institution)</small></label><input type="text" class="form-control form-control-sm p-fac-text" placeholder="e.g. Faculty of Science; Faculty of Engineering"></div>';
+            return '<div class="partner-card">'
+                + '<div class="partner-head"><span class="partner-title">Partner Institution</span>'
+                + '<button type="button" class="btn btn-sm btn-outline-danger" onclick="removePartnerRow(this)">&#10005; Remove</button></div>'
+                + '<div class="row g-2">'
+                + '<div class="col-md-5 p-inst-wrap"><label class="form-label">Institution <span class="text-danger">*</span></label><input type="text" class="form-control p-inst" autocomplete="off"><div class="inst-suggest"></div></div>'
+                + '<div class="col-md-3"><label class="form-label">Country</label><input type="text" class="form-control p-country"></div>'
+                + '<div class="col-md-2"><label class="form-label">Code</label><input type="text" class="form-control p-code"></div>'
+                + '<div class="col-md-2"><label class="form-label">Inst. No.</label><input type="text" class="form-control p-num" placeholder="auto"></div>'
+                + '</div>'
+                + facHTML
+                + '<div class="mt-2"><label class="form-label mb-1"><strong>Signees</strong> <small class="text-muted">(who signed for this institution)</small></label>'
+                + '<div class="p-signees"></div>'
+                + '<button type="button" class="btn btn-sm btn-outline-secondary" onclick="addSigneeRow(this)">+ Add Signee</button></div>'
+                + '</div>';
+        }
+
+        function signeeRowHTML() {
+            return '<div class="signee-row">'
+                + '<input type="text" class="form-control s-name" placeholder="Name">'
+                + '<input type="text" class="form-control s-role" placeholder="Role / Title">'
+                + '<input type="text" class="form-control s-email" placeholder="Email">'
+                + '<button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">&#10005;</button>'
+                + '</div>';
+        }
+
+        function addPartnerRow(containerId, data) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.innerHTML = partnerCardHTML();
+            const card = div.firstChild;
+            container.appendChild(card);
+            if (data) {
+                card.querySelector('.p-inst').value = data.institution || '';
+                card.querySelector('.p-country').value = data.country || '';
+                card.querySelector('.p-code').value = data.country_code || '';
+                card.querySelector('.p-num').value = data.institution_number || '';
+                if (SINGLE_MODE) {
+                    const linked = data.faculties || [];
+                    linked.forEach(function(f) { addFacChip(card, f.id, f.name); });
+                    const pftxt = card.querySelector('.p-fac-partner-text');
+                    if (pftxt && data.faculty_names) pftxt.value = data.faculty_names;
+                } else {
+                    const txt = card.querySelector('.p-fac-text');
+                    if (txt && (data.faculty_names || '')) txt.value = data.faculty_names;
+                }
+                (data.signees || []).forEach(function(s) { addSigneeToCard(card, s); });
+            }
+            const wrap = card.querySelector('.p-fac-wrap');
+            if (SINGLE_MODE && wrap && !wrap.classList.contains('d-none')) setUpFacSuggest(card);
+            return card;
+        }
+
+        function addSigneeToCard(card, s) {
+            const list = card.querySelector('.p-signees');
+            const div = document.createElement('div');
+            div.innerHTML = signeeRowHTML();
+            const row = div.firstChild;
+            list.appendChild(row);
+            if (s) {
+                row.querySelector('.s-name').value = s.name || '';
+                row.querySelector('.s-role').value = s.role || '';
+                row.querySelector('.s-email').value = s.email || '';
+            }
+        }
+
+        function addSigneeRow(btn, s) { addSigneeToCard(btn.closest('.partner-card'), s); }
+
+        function removeRow(btn) { const r = btn.closest('.signee-row'); if (r) r.remove(); }
+
+        function removePartnerRow(btn) {
+            const card = btn.closest('.partner-card');
+            const container = card.parentElement;
+            if (container.children.length <= 1) { alert('An MOU needs at least one partner institution.'); return; }
+            card.remove();
+        }
+
+        function fillPartners(containerId, partners) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            (partners && partners.length ? partners : [{}]).forEach(function(p) { addPartnerRow(containerId, p); });
+        }
+
+        function buildPartners(containerId) {
+            const cards = document.querySelectorAll('#' + containerId + ' .partner-card');
+            const partners = [];
+            cards.forEach(function(card) {
+                const inst = card.querySelector('.p-inst').value.trim();
+                if (!inst) return;
+                const p = {
+                    institution: inst,
+                    country: card.querySelector('.p-country').value.trim(),
+                    country_code: card.querySelector('.p-code').value.trim(),
+                };
+                const num = card.querySelector('.p-num').value.trim();
+                if (num) p.institution_number = parseInt(num, 10) || num;
+                if (SINGLE_MODE) {
+                    const ids = [];
+                    card.querySelectorAll('.p-fac-chip').forEach(function(chip) { ids.push(parseInt(chip.getAttribute('data-id'), 10)); });
+                    p.faculty_ids = ids;
+                    const pftxt = card.querySelector('.p-fac-partner-text');
+                    if (pftxt && pftxt.value.trim()) p.faculty_names = pftxt.value.trim().split(/[;,]/).map(function(s) { return s.trim(); }).filter(Boolean);
+                } else {
+                    const txt = card.querySelector('.p-fac-text');
+                    if (txt && txt.value.trim()) p.faculty_names = txt.value.trim().split(/[;,]/).map(function(s) { return s.trim(); }).filter(Boolean);
+                }
+                const signees = [];
+                card.querySelectorAll('.signee-row').forEach(function(row) {
+                    const name = row.querySelector('.s-name').value.trim();
+                    if (!name) return;
+                    signees.push({
+                        name: name,
+                        role: row.querySelector('.s-role').value.trim(),
+                        email: row.querySelector('.s-email').value.trim()
+                    });
+                });
+                p.signees = signees;
+                partners.push(p);
+            });
+            return partners;
+        }
+
+        function addFacChip(card, id, name) {
+            const chips = card.querySelector('.p-fac-chips');
+            const div = document.createElement('div');
+            div.innerHTML = '<span class="p-fac-chip badge bg-primary" data-id="' + id + '">' + esc(name) + ' <a href="javascript:void(0)" onclick="removeFacChip(this)" class="text-white ms-1">&#10005;</a></span>';
+            chips.appendChild(div.firstChild);
+        }
+
+        function removeFacChip(link) {
+            const chip = link.closest('.p-fac-chip');
+            if (chip) chip.remove();
+        }
+
+        function setUpFacSuggest(card) {
+            const wrap = card.querySelector('.p-fac-input-wrap');
+            if (!wrap || wrap.getAttribute('data-fac-ready')) return;
+            wrap.setAttribute('data-fac-ready', '1');
+            const inp = wrap.querySelector('.p-fac-input');
+            const box = wrap.querySelector('.fac-suggest');
+            let t = null;
+            inp.addEventListener('input', function() {
+                clearTimeout(t);
+                const term = (inp.value || '').trim().toLowerCase();
+                if (term.length < 1) { box.style.display = 'none'; box.innerHTML = ''; return; }
+                t = setTimeout(function() {
+                    const existing = Array.from(card.querySelectorAll('.p-fac-chip')).map(function(c) { return parseInt(c.getAttribute('data-id'), 10); });
+                    const list = FACULTIES.filter(function(f) {
+                        return existing.indexOf(f.id) === -1 && f.name.toLowerCase().indexOf(term) !== -1;
+                    });
+                    if (!list.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+                    box.innerHTML = list.map(function(f) {
+                        return '<div class="s-item" data-id="' + f.id + '" data-name="' + escAttr(f.name) + '">' + esc(f.name) + '</div>';
+                    }).join('');
+                    box.style.display = 'block';
+                }, 200);
+            });
+            wrap.addEventListener('click', function(e) {
+                const item = e.target.closest('.s-item');
+                if (!item) return;
+                e.stopPropagation();
+                addFacChip(card, parseInt(item.getAttribute('data-id'), 10), item.getAttribute('data-name'));
+                inp.value = '';
+                box.style.display = 'none'; box.innerHTML = '';
+            });
+        }
+
+        document.addEventListener('click', function(e) {
+            document.querySelectorAll('.fac-suggest').forEach(function(box) {
+                if (!e.target.closest('.p-fac-input-wrap')) { box.style.display = 'none'; }
+            });
+        });
+
+        function setScope(prefix) {
+            const radio = document.querySelector('input[name="' + prefix + 'Scope"]:checked');
+            const val = radio ? radio.value : 'university';
+            const container = document.getElementById(prefix + 'Partners');
+            container.querySelectorAll('.p-fac-wrap').forEach(function(wrap) {
+                wrap.classList.toggle('d-none', val !== 'faculty');
+            });
+            if (val === 'faculty' && SINGLE_MODE) {
+                container.querySelectorAll('.partner-card').forEach(function(card) {
+                    if (!card.querySelector('.p-fac-input-wrap').getAttribute('data-fac-ready')) setUpFacSuggest(card);
+                });
+            }
+        }
+
+        function readScope(prefix) {
+            const radio = document.querySelector('input[name="' + prefix + 'Scope"]:checked');
+            return { scope: radio ? radio.value : 'university' };
+        }
+
+        function escAttr(s) {
+            return String(s == null ? '' : s).replace(/[<>&"']/g, function(c) { return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]; });
+        }
+
+        async function fetchInstSuggestions(term, box) {
+            try {
+                const res = await fetch(BASE + '/api/institutions?search=' + encodeURIComponent(term) + '&limit=8');
+                const data = await res.json();
+                if (!data.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+                const low = term.toLowerCase();
+                box.innerHTML = data.map(function(d) {
+                    const exact = (d.institution || '').toLowerCase() === low;
+                    const meta = [d.country, d.mou_count + ' MOU' + (d.mou_count > 1 ? 's' : '')].filter(Boolean).join(' &#8226; ');
+                    return '<div class="s-item" data-inst="' + escAttr(d.institution) + '" data-country="' + escAttr(d.country) + '" data-code="' + escAttr(d.country_code) + '">'
+                        + esc(d.institution)
+                        + (exact ? '<span class="s-badge">already exists</span>' : '')
+                        + '<div class="s-meta">' + esc(meta || '') + '</div></div>';
+                }).join('');
+                box.style.display = 'block';
+            } catch (e) { box.style.display = 'none'; }
+        }
+
+        function setupInstSuggest(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            let t = null;
+            container.addEventListener('input', function(e) {
+                const inp = e.target;
+                if (!inp.classList || !inp.classList.contains('p-inst')) return;
+                clearTimeout(t);
+                const box = inp.closest('.partner-card').querySelector('.inst-suggest');
+                const term = (inp.value || '').trim();
+                if (term.length < 2) { box.style.display = 'none'; box.innerHTML = ''; return; }
+                t = setTimeout(function() { fetchInstSuggestions(term, box); }, 300);
+            });
+            container.addEventListener('click', function(e) {
+                const item = e.target.closest('.s-item');
+                if (!item) return;
+                e.stopPropagation();
+                const card = item.closest('.partner-card');
+                card.querySelector('.p-inst').value = item.getAttribute('data-inst') || '';
+                const country = card.querySelector('.p-country');
+                const code = card.querySelector('.p-code');
+                if (country && !country.value) country.value = item.getAttribute('data-country') || '';
+                if (code && !code.value) code.value = item.getAttribute('data-code') || '';
+                const box = card.querySelector('.inst-suggest');
+                box.style.display = 'none'; box.innerHTML = '';
+            });
+        }
+
+        document.addEventListener('click', function(e) {
+            document.querySelectorAll('.inst-suggest').forEach(function(box) {
+                if (!e.target.closest('.p-inst-wrap')) { box.style.display = 'none'; }
+            });
+        });
+
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.has('search')) document.getElementById('searchInput').value = params.get('search');
+            if (params.has('country_search')) document.getElementById('countrySearchInput').value = params.get('country_search');
+            if (params.has('status')) document.getElementById('statusFilter').value = params.get('status');
+            if (params.has('file') && document.getElementById('fileFilter')) document.getElementById('fileFilter').value = params.get('file');
+            if (params.has('expiry_status')) document.getElementById('expiryFilter').value = params.get('expiry_status');
+            if (params.has('per_page')) document.getElementById('perPageSelect').value = params.get('per_page');
+            if (params.has('page')) currentPage = parseInt(params.get('page'), 10) || 1;
+            if (params.has('sort_by')) currentSort = params.get('sort_by');
+            if (params.has('sort_order')) currentOrder = params.get('sort_order');
+            ['portuguese', 'asean', 'mobility', 'recently_signed', 'expired_active', 'expiring_60'].forEach(function(k) {
+                if (params.has(k)) extraFilters[k] = params.get(k);
+            });
+            var hasFilter = params.has('search') || params.has('country_search') || params.has('status') || params.has('file') || params.has('expiry_status') || Object.keys(extraFilters).length > 0;
+            document.getElementById('showAllBtn').style.display = hasFilter ? '' : 'none';
+        })();
+
+        async function loadMOUs(page) {
+            if (page) currentPage = page;
+            const search = document.getElementById('searchInput').value;
+            const countrySearch = document.getElementById('countrySearchInput').value;
+            const perPage = document.getElementById('perPageSelect').value;
+            const status = document.getElementById('statusFilter').value;
+            document.getElementById('searchClear').classList.toggle('visible', search.length > 0);
+            document.getElementById('countrySearchClear').classList.toggle('visible', countrySearch.length > 0);
+            const url = BASE + '/api/mous?page=' + currentPage + '&per_page=' + perPage
+                + '&search=' + encodeURIComponent(search)
+                + '&country_search=' + encodeURIComponent(countrySearch)
+                + '&status=' + encodeURIComponent(status)
+                + '&file=' + encodeURIComponent(document.getElementById('fileFilter') ? document.getElementById('fileFilter').value : '')
+                + '&expiry_status=' + encodeURIComponent(document.getElementById('expiryFilter').value)
+                + '&sort_by=' + currentSort + '&sort_order=' + currentOrder
+                + Object.keys(extraFilters).map(function(k) { return '&' + k + '=' + encodeURIComponent(extraFilters[k]); }).join('');
+            const res = await fetch(url);
+            const data = await res.json();
+            document.getElementById('mouTableBody').innerHTML = data.mous.map(m => {
+                const ps = (m.partners && m.partners.length) ? m.partners : [{institution: m.institution, country: m.country, country_code: m.country_code, institution_number: m.institution_number}];
+                const insts = ps.map(p => esc(p.institution || 'Unknown')).join('<br>');
+                const seen = [];
+                ps.forEach(p => { if (p.country && seen.indexOf(p.country) === -1) seen.push(p.country); });
+                const countries = seen.length ? seen.map(c => esc(c)).join(', ') : '-';
+                const nums = ps.map(p => p.institution_number || '-').join(', ');
+                return '<tr class="multi-partners" style="cursor:pointer" onclick="viewMOU(' + m.id + ')"><td>' + nums + '</td><td>' + insts + '</td><td>' + countries + '</td>'
+                + '<td><span class="badge bg-' + (m.status === 'ACTIVE' ? 'success' : m.status === 'NOT ACTIVE' ? 'danger' : 'secondary') + '">' + m.status + '</span></td>'
+                + '<td>' + (m.signed_date ? new Date(m.signed_date).toLocaleDateString() : '-') + '</td>'
+                + '<td>' + (m.expiry_date ? new Date(m.expiry_date).toLocaleDateString() : '-') + '</td>'
+                + (CAN_VIEW_FILES
+                    ? '<td>' + (m.signed_file ? '<a href="#" onclick="event.stopPropagation();viewFile(' + m.id + ');return false;" class="pdf-badge">PDF</a>' : '<span class="text-muted">&#10005;</span>') + '</td>'
+                    : '')
+                + (CAN_MANAGE
+                    ? '<td><button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation();editMOU(' + m.id + ')">&#9997;&#65039;</button> <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation();deleteMOU(' + m.id + ')">&#128465;&#65039;</button></td>'
+                    : '<td><span class="text-muted small">View</span></td>')
+                + '</tr>';
+            }).join('');
+            document.getElementById('mouCount').textContent = data.total + ' MOUs';
+            const pag = document.getElementById('mouPagination');
+            let phtml = '';
+            if (data.pages > 1) {
+                if (currentPage > 1) phtml += '<li class="page-item"><button class="page-link" onclick="loadMOUs(' + (currentPage - 1) + ')">&laquo;</button></li>';
+                for (let i = Math.max(1, currentPage - 2); i <= Math.min(data.pages, currentPage + 2); i++)
+                    phtml += '<li class="page-item ' + (i === currentPage ? 'active' : '') + '"><button class="page-link" onclick="loadMOUs(' + i + ')">' + i + '</button></li>';
+                if (currentPage < data.pages) phtml += '<li class="page-item"><button class="page-link" onclick="loadMOUs(' + (currentPage + 1) + ')">&raquo;</button></li>';
+            }
+            pag.innerHTML = phtml;
+
+            // Sync current filters to URL
+            var urlParams = new URLSearchParams();
+            if (search) urlParams.set('search', search);
+            if (countrySearch) urlParams.set('country_search', countrySearch);
+            if (status) urlParams.set('status', status);
+            var fileVal = document.getElementById('fileFilter') ? document.getElementById('fileFilter').value : '';
+            if (fileVal) urlParams.set('file', fileVal);
+            var expiryVal = document.getElementById('expiryFilter').value;
+            if (expiryVal) urlParams.set('expiry_status', expiryVal);
+            Object.keys(extraFilters).forEach(function(k) { urlParams.set(k, extraFilters[k]); });
+            if (perPage != '50') urlParams.set('per_page', perPage);
+            if (currentPage > 1) urlParams.set('page', currentPage);
+            if (currentSort != 'institution') urlParams.set('sort_by', currentSort);
+            if (currentOrder != 'asc') urlParams.set('sort_order', currentOrder);
+            var newUrl = BASE + '/manage' + (urlParams.toString() ? '?' + urlParams.toString() : '');
+            var currentPath = window.location.pathname + window.location.search;
+            if (newUrl !== currentPath) {
+                history.pushState(null, '', newUrl);
+            }
+
+            updateSortIcons();
+        }
+
+        function sortBy(col) {
+            if (currentSort === col) currentOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+            else { currentSort = col; currentOrder = 'asc'; }
+            loadMOUs(1);
+        }
+
+        function updateSortIcons() {
+            document.querySelectorAll('.th-sortable .sort-icon').forEach(function(el) {
+                el.classList.remove('active');
+                el.innerHTML = '&#9650;';
+            });
+            var icon = document.getElementById('ico-' + currentSort);
+            if (icon) {
+                icon.classList.add('active');
+                icon.innerHTML = currentOrder === 'asc' ? '&#9650;' : '&#9660;';
+            }
+        }
+
+        function onSearch() { clearTimeout(window._st); window._st = setTimeout(function() { loadMOUs(1); }, 300); }
+        function clearSearch() { document.getElementById('searchInput').value = ''; document.getElementById('searchClear').classList.remove('visible'); loadMOUs(1); }
+        function clearCountrySearch() { document.getElementById('countrySearchInput').value = ''; document.getElementById('countrySearchClear').classList.remove('visible'); loadMOUs(1); }
+
+        function esc(s) { return s ? String(s).replace(/[<>&]/g, function(c) { return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c]; }) : '-'; }
+
+        document.getElementById('addMouForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const action = e.submitter ? e.submitter.value : 'save';
+            const form = new FormData(e.target);
+            const data = {};
+            form.forEach(function(v, k) { data[k] = v; });
+            data.portuguese_speaking = !!form.get('portuguese_speaking');
+            data.asean = !!form.get('asean');
+            data.mobility_available = !!form.get('mobility_available');
+            delete data.addScope;
+            delete data.action;
+            data.partners = buildPartners('addPartners');
+            if (!data.partners.length) {
+                document.getElementById('addResult').innerHTML = '<div class="alert alert-danger py-2">&#10006; At least one partner institution with a name is required</div>';
+                return;
+            }
+            Object.assign(data, readScope('add'));
+            const res = await fetch(BASE + '/api/mous', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            const result = await res.json();
+            document.getElementById('addResult').innerHTML = result.success
+                ? '<div class="alert alert-success py-2">&#10004; ' + result.message + '</div>'
+                : '<div class="alert alert-danger py-2">&#10006; ' + result.message + '</div>';
+            if (result.success) {
+                e.target.reset();
+                fillPartners('addPartners', [{}]);
+                setScope('add');
+                loadMOUs();
+                if (action === 'save' && result.id) {
+                    editMOU(result.id);
+                } else {
+                    // Switch to list tab
+                    const listTabEl = document.querySelector('[data-bs-target="#listTab"]');
+                    if (listTabEl) {
+                        let tabInst = bootstrap.Tab.getInstance(listTabEl);
+                        if (!tabInst) tabInst = new bootstrap.Tab(listTabEl);
+                        tabInst.show();
+                    }
+                }
+            }
+        });
+
+        var editMouId = null;
+        async function editMOU(id) {
+            const res = await fetch(BASE + '/api/mous/' + id);
+            const m = await res.json();
+            editMouId = id;
+            fillPartners('editPartners', m.partners && m.partners.length ? m.partners : [{}]);
+            const scopeRadio = document.querySelector('input[name="editScope"][value="' + (m.scope === 'faculty' ? 'faculty' : 'university') + '"]');
+            if (scopeRadio) scopeRadio.checked = true;
+            setScope('edit');
+            document.getElementById('editSigned').value = m.signed_date || '';
+            document.getElementById('editExpiry').value = m.expiry_date || '';
+            document.getElementById('editDuration').value = m.duration || '';
+            document.getElementById('editStatus').value = m.status || 'ACTIVE';
+            document.getElementById('editNotice').value = m.notice_period || '';
+            document.getElementById('editWebsite').value = m.website_status || '';
+            document.getElementById('editRenewal').value = m.renewal_terms || '';
+            document.getElementById('editAdditional').value = m.additional_info || '';
+            document.getElementById('editMobilityInfo').value = m.mobility_info || '';
+            document.getElementById('editOther').value = m.other_projects || '';
+            document.getElementById('editPortuguese').checked = !!m.portuguese_speaking;
+            document.getElementById('editAsean').checked = !!m.asean;
+            document.getElementById('editMobility').checked = !!m.mobility_available;
+            document.getElementById('editFileDisplay').innerHTML = m.signed_file
+                ? '<a href="' + BASE + '/uploads/' + m.signed_file + '" target="_blank" class="pdf-badge">PDF</a> ' + m.signed_file
+                : '<span class="text-muted">No file</span>';
+            new bootstrap.Modal(document.getElementById('editModal')).show();
+        }
+
+        async function saveEdit(closeModal) {
+            const data = {
+                partners: buildPartners('editPartners'),
+                signed_date: document.getElementById('editSigned').value,
+                expiry_date: document.getElementById('editExpiry').value,
+                duration: document.getElementById('editDuration').value,
+                status: document.getElementById('editStatus').value,
+                notice_period: document.getElementById('editNotice').value,
+                website_status: document.getElementById('editWebsite').value,
+                renewal_terms: document.getElementById('editRenewal').value,
+                additional_info: document.getElementById('editAdditional').value,
+                mobility_info: document.getElementById('editMobilityInfo').value,
+                other_projects: document.getElementById('editOther').value,
+                portuguese_speaking: document.getElementById('editPortuguese').checked,
+                asean: document.getElementById('editAsean').checked,
+                mobility_available: document.getElementById('editMobility').checked
+            };
+            if (!data.partners.length) {
+                document.getElementById('editResult').innerHTML = '<div class="alert alert-danger py-1">&#10006; At least one partner institution with a name is required</div>';
+                return;
+            }
+            Object.assign(data, readScope('edit'));
+            const res = await fetch(BASE + '/api/mous/' + editMouId, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            const result = await res.json();
+            if (result.success) {
+                const fu = document.getElementById('editFileUpload');
+                if (fu.files[0]) {
+                    const fd = new FormData(); fd.append('file', fu.files[0]);
+                    const upRes = await fetch(BASE + '/api/upload-file/' + editMouId, { method: 'POST', body: fd });
+                    const upResult = await upRes.json();
+                    if (upResult.success) {
+                        // Refresh the file display with the new filename
+                        document.getElementById('editFileDisplay').innerHTML =
+                            '<a href="' + BASE + '/uploads/' + upResult.filename + '" target="_blank" class="pdf-badge">PDF</a> ' + upResult.filename;
+                        fu.value = ''; // Clear the file input
+                    }
+                }
+                loadMOUs();
+                if (closeModal) {
+                    bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+                } else {
+                    document.getElementById('editResult').innerHTML = '<div class="alert alert-success py-1">&#10004; Saved</div>';
+                    setTimeout(function() { document.getElementById('editResult').innerHTML = ''; }, 2000);
+                }
+            } else {
+                document.getElementById('editResult').innerHTML = '<div class="alert alert-danger py-1">&#10006; ' + result.message + '</div>';
+            }
+        }
+
+        async function deleteMOU(id) {
+            const pw = prompt('Enter password to confirm deletion:');
+            if (!pw) return;
+            const res = await fetch(BASE + '/api/mous/' + id, { method: 'DELETE', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({password: pw}) });
+            const result = await res.json();
+            if (result.success) loadMOUs(); else alert('Error: ' + result.message);
+        }
+
+        var viewMouId = null;
+        async function viewMOU(id) {
+            const res = await fetch(BASE + '/api/mous/' + id);
+            const m = await res.json();
+            viewMouId = id;
+            document.getElementById('viewOwn').innerHTML = OWN_INSTITUTION ? 'Between <strong>' + esc(OWN_INSTITUTION) + '</strong> and:' : '';
+            var phtml = (m.partners || []).map(function(p) {
+                var sig = (p.signees || []).map(function(s) {
+                    return '<li>' + esc(s.name || '') + (s.role ? ' — ' + esc(s.role) : '') + (s.email ? ' (' + esc(s.email) + ')' : '') + '</li>';
+                }).join('');
+                var facLines = '';
+                if (SINGLE_MODE) {
+                    var ids = (p.faculties || []).map(function(f) { return f.id; });
+                    var names = FACULTIES.filter(function(f) { return ids.indexOf(f.id) !== -1; }).map(function(f) { return f.name; });
+                    if (names.length) facLines += '<div class="vp-fac">Our Faculties: ' + esc(names.join(', ')) + '</div>';
+                    if (p.faculty_names) facLines += '<div class="vp-fac">Partner\'s Faculties: ' + esc(p.faculty_names) + '</div>';
+                } else {
+                    if (p.faculty_names) facLines = '<div class="vp-fac">Faculties: ' + esc(p.faculty_names) + '</div>';
+                }
+                return '<div class="view-partner">'
+                    + '<div class="vp-inst">' + esc(p.institution || 'Unknown Institution') + '</div>'
+                    + '<div class="vp-sub">' + esc(p.country || '-') + ' &#8226; ' + esc(p.country_code || '') + ' &#8226; No. ' + (p.institution_number || '-') + '</div>'
+                    + facLines
+                    + (sig ? '<ul>' + sig + '</ul>' : '')
+                    + '</div>';
+            }).join('');
+            document.getElementById('viewPartners').innerHTML = phtml || '<span class="text-muted">No partner institutions</span>';
+            document.getElementById('viewScope').textContent = m.scope === 'faculty' ? 'Faculty-level' : 'University-level';
+            let allFac = [];
+            (m.partners || []).forEach(function(p) {
+                if (SINGLE_MODE) {
+                    (p.faculties || []).forEach(function(f) { if (allFac.indexOf(f.name) === -1) allFac.push(f.name); });
+                    if (p.faculty_names) {
+                        p.faculty_names.split(/[;,]/).forEach(function(s) { s = s.trim(); if (s && allFac.indexOf(s) === -1) allFac.push(s); });
+                    }
+                } else if (p.faculty_names) {
+                    p.faculty_names.split(/[;,]/).forEach(function(s) { s = s.trim(); if (s && allFac.indexOf(s) === -1) allFac.push(s); });
+                }
+            });
+            document.getElementById('viewFaculties').textContent = allFac.length ? allFac.join(', ') : '-';
+            document.getElementById('viewSigned').textContent = m.signed_date ? new Date(m.signed_date).toLocaleDateString() : '-';
+            document.getElementById('viewExpiry').textContent = m.expiry_date ? new Date(m.expiry_date).toLocaleDateString() : '-';
+            document.getElementById('viewDuration').textContent = m.duration || '-';
+            document.getElementById('viewStatus').textContent = m.status || '-';
+            document.getElementById('viewNotice').textContent = m.notice_period || '-';
+            document.getElementById('viewWebsite').textContent = m.website_status || '-';
+            document.getElementById('viewRenewal').textContent = m.renewal_terms || '-';
+            document.getElementById('viewAdditional').textContent = m.additional_info || '-';
+            document.getElementById('viewMobilityInfo').textContent = m.mobility_info || '-';
+            document.getElementById('viewOther').textContent = m.other_projects || '-';
+            var flags = [];
+            if (m.portuguese_speaking) flags.push('Portuguese-Speaking');
+            if (m.asean) flags.push('ASEAN');
+            if (m.mobility_available) flags.push('Mobility Available');
+            document.getElementById('viewFlags').textContent = flags.length ? flags.join(', ') : 'None';
+            document.getElementById('viewFile').innerHTML = !CAN_VIEW_FILES
+                ? '<span class="text-muted">&#128274; Reading the signed document is available to registered users.</span>'
+                : (m.signed_file
+                    ? '<a href="#" onclick="viewFile(' + viewMouId + ');return false;" class="pdf-badge">PDF</a> ' + m.signed_file
+                    : '<span class="text-muted">No file uploaded</span>');
+            new bootstrap.Modal(document.getElementById('viewModal')).show();
+        }
+
+        function viewToEdit() {
+            bootstrap.Modal.getInstance(document.getElementById('viewModal')).hide();
+            editMOU(viewMouId);
+        }
+
+        var pdfMouId = null;
+        function viewFile(id) {
+            fetch(BASE + '/api/mous/' + id).then(function(r) { return r.json(); }).then(function(m) {
+                pdfMouId = id;
+                var title = m.institution ? m.institution.replace(/https?:\/\/[^\s]*/g, '').trim().substring(0, 60) : 'MOU #' + id;
+                document.getElementById('pdfModalTitle').textContent = 'Signed MOU \u2014 ' + title;
+                var fileUrl = BASE + '/uploads/' + m.signed_file;
+                document.getElementById('pdfIframe').src = fileUrl;
+                document.getElementById('pdfDownloadBtn').href = fileUrl;
+                document.getElementById('pdfDownloadBtn').setAttribute('download', m.signed_file);
+                document.getElementById('pdfEmailResult').innerHTML = '';
+                document.getElementById('pdfEmailInput').value = '';
+                new bootstrap.Modal(document.getElementById('pdfModal')).show();
+            });
+        }
+
+        function sendFileEmail() {
+            var email = document.getElementById('pdfEmailInput').value.trim();
+            if (!email) { document.getElementById('pdfEmailResult').innerHTML = '<span class="text-danger">Enter an email address</span>'; return; }
+            document.getElementById('pdfEmailResult').innerHTML = '<span class="text-muted">Sending...</span>';
+            fetch(BASE + '/api/send-file-email', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({mou_id: pdfMouId, email: email})
+            }).then(function(r) { return r.json(); }).then(function(result) {
+                document.getElementById('pdfEmailResult').innerHTML = result.success
+                    ? '<span class="text-success">\u2714 ' + result.message + '</span>'
+                    : '<span class="text-danger">\u2716 ' + result.message + '</span>';
+            }).catch(function(err) {
+                document.getElementById('pdfEmailResult').innerHTML = '<span class="text-danger">\u2716 Error: ' + err + '</span>';
+            });
+        }
+
+        var dropZone = document.getElementById('dropZone');
+        var fileInput2 = document.getElementById('fileInput');
+        var fileInfo = document.getElementById('fileInfo');
+        var csvUploadBtn = document.getElementById('csvUploadBtn');
+        dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('dragover'); });
+        dropZone.addEventListener('drop', function(e) { e.preventDefault(); dropZone.classList.remove('dragover'); if (e.dataTransfer.files.length) { fileInput2.files = e.dataTransfer.files; updateFileInfo(); } });
+        fileInput2.addEventListener('change', updateFileInfo);
+        function updateFileInfo() { var f = fileInput2.files[0]; if (f) { document.getElementById('fileName').textContent = f.name + ' (' + (f.size / 1024).toFixed(1) + ' KB)'; fileInfo.classList.add('show'); dropZone.classList.add('has-file'); csvUploadBtn.disabled = false; } }
+        function clearFile() { fileInput2.value = ''; fileInfo.classList.remove('show'); dropZone.classList.remove('has-file'); csvUploadBtn.disabled = true; }
+        document.getElementById('csvUploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            var pw = prompt('DANGER: This will DELETE ALL existing MOUs and rebuild from CSV.\n\nEnter the management password to confirm this irreversible action:');
+            if (!pw) return;
+            var fd = new FormData(e.target);
+            fd.append('confirm_password', pw);
+            csvUploadBtn.disabled = true; csvUploadBtn.innerHTML = '&#9203; Importing...';
+            var res = await fetch(BASE + '/upload-csv', { method: 'POST', body: fd });
+            var result = await res.json();
+            document.getElementById('csvResult').innerHTML = result.success
+                ? '<div class="alert alert-success">&#10004; ' + result.message + '</div>'
+                : '<div class="alert alert-danger">&#10006; ' + result.message + '</div>';
+            csvUploadBtn.innerHTML = '&#128229; Import Data';
+            if (result.success) { clearFile(); loadMOUs(); }
+        });
+
+        // ===== EXPORT FUNCTIONS =====
+        function buildFilterParams() {
+            var params = new URLSearchParams();
+            var search = document.getElementById('searchInput').value;
+            var countrySearch = document.getElementById('countrySearchInput').value;
+            var status = document.getElementById('statusFilter').value;
+            if (search) params.set('search', search);
+            if (countrySearch) params.set('country_search', countrySearch);
+            if (status) params.set('status', status);
+            var file = document.getElementById('fileFilter') ? document.getElementById('fileFilter').value : '';
+            if (file) params.set('file', file);
+            var expiry = document.getElementById('expiryFilter').value;
+            if (expiry) params.set('expiry_status', expiry);
+            Object.keys(extraFilters).forEach(function(k) { params.set(k, extraFilters[k]); });
+            return params;
+        }
+
+        function buildSearchInfo() {
+            var parts = [];
+            var search = document.getElementById('searchInput').value;
+            var countrySearch = document.getElementById('countrySearchInput').value;
+            var status = document.getElementById('statusFilter').value;
+            if (search) parts.push('Institution: ' + search);
+            if (countrySearch) parts.push('Country: ' + countrySearch);
+            if (status) parts.push('Status: ' + status);
+            var file = document.getElementById('fileFilter') ? document.getElementById('fileFilter').value : '';
+            if (file === 'has') parts.push('Has PDF');
+            else if (file === 'missing') parts.push('Missing PDF');
+            var expiry = document.getElementById('expiryFilter').value;
+            if (expiry === 'expired') parts.push('Expired');
+            else if (expiry) parts.push('Expiry within ' + expiry + 'd');
+            Object.keys(extraFilters).forEach(function(k) { parts.push(k.replace(/_/g, ' ')); });
+            if (!parts.length) parts.push('All MOUs');
+            return parts.join(', ');
+        }
+
+        function exportPDF() {
+            var params = buildFilterParams();
+            var url = BASE + '/api/export-pdf?' + params.toString();
+            fetch(url).then(function(r) {
+                if (r.status === 401) { alert('Authentication required.'); return null; }
+                var fname = 'usj_mou_report.pdf';
+                var cd = r.headers.get('Content-Disposition');
+                if (cd) { var m = cd.match(/filename=([^;]+)/); if (m) fname = m[1]; }
+                return r.blob().then(function(blob) { return {blob: blob, fname: fname}; });
+            }).then(function(result) {
+                if (!result) return;
+                var a = document.createElement('a');
+                a.href = window.URL.createObjectURL(result.blob);
+                a.download = result.fname;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }).catch(function(err) { alert('PDF export failed: ' + err); });
+        }
+
+        function exportCSV() {
+            var url = BASE + '/api/export-csv';
+            fetch(url).then(function(r) {
+                if (r.status === 401) { alert('Authentication required.'); return null; }
+                return r.blob();
+            }).then(function(blob) {
+                if (!blob) return;
+                var a = document.createElement('a');
+                a.href = window.URL.createObjectURL(blob);
+                a.download = 'mous_export.csv';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }).catch(function(err) { alert('Export failed: ' + err); });
+        }
+
+        function showAnalyticsModal() {
+            document.getElementById('analyticsResult').innerHTML = '';
+            new bootstrap.Modal(document.getElementById('analyticsModal')).show();
+        }
+
+        function exportAnalytics() {
+            var options = [];
+            ['stats', 'status_pie', 'country_bar', 'expiry_timeline', 'regional_pie', 'flags_bar'].forEach(function(k) {
+                var el = document.getElementById('opt_' + k);
+                if (el && el.checked) options.push(k);
+            });
+            if (!options.length) {
+                document.getElementById('analyticsResult').innerHTML = '<div class="alert alert-warning py-2">Select at least one chart.</div>';
+                return;
+            }
+            document.getElementById('analyticsResult').innerHTML = '<div class="alert alert-info py-2">Generating image...</div>';
+            var params = new URLSearchParams();
+            params.set('options', options.join(','));
+            params.set('info', buildSearchInfo());
+            var url = BASE + '/api/export-analytics?' + params.toString();
+            fetch(url).then(function(r) {
+                if (r.status === 401) { alert('Authentication required.'); return null; }
+                return r.blob();
+            }).then(function(blob) {
+                if (!blob) return;
+                var a = document.createElement('a');
+                a.href = window.URL.createObjectURL(blob);
+                a.download = 'mou_analytics.jpg';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                bootstrap.Modal.getInstance(document.getElementById('analyticsModal')).hide();
+            }).catch(function(err) {
+                document.getElementById('analyticsResult').innerHTML = '<div class="alert alert-danger py-2">Error: ' + err + '</div>';
+            });
+        }
+
+        loadMOUs();
+        fillPartners('addPartners', [{}]);
+        setScope('add');
+        setupInstSuggest('addPartners');
+        setupInstSuggest('editPartners');
+    </script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+[Unit]
+Description=USJ MOU Dashboard
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/mou-dashboard
+Environment="PATH=/var/www/mou-dashboard/venv/bin"
+ExecStart=/var/www/mou-dashboard/venv/bin/gunicorn --workers 3 --bind unix:/var/www/mou-dashboard/mou-dashboard.sock app:app
+
+# Restart on failure
+Restart=always
+RestartSec=10
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

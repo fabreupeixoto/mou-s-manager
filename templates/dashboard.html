@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USJ MOU Dashboard</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <style>
+        :root {
+            --usj-gold: #D4AF37;
+            --usj-blue: #1a365d;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, var(--usj-blue) 0%, #2d4a7c 100%);
+        }
+        
+        #last-sync-display {
+            font-size: 0.85rem;
+            opacity: 0.9;
+            margin-right: 0.5rem;
+        }
+        
+        .stat-card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-3px);
+        }
+        
+        a.stat-link {
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        
+        a.stat-link:hover {
+            text-decoration: none;
+            color: inherit;
+        }
+        
+        .stat-card .card-body {
+            padding: 1.5rem;
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--usj-blue);
+        }
+        
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .stat-icon {
+            font-size: 2rem;
+            opacity: 0.3;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+        }
+        
+        #map {
+            height: 500px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .expiring-alert {
+            background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%);
+            border-left: 4px solid #dc3545;
+        }
+        
+        .sync-btn {
+            background: var(--usj-gold);
+            border: none;
+            color: white;
+        }
+        
+        .sync-btn:hover {
+            background: #b89628;
+            color: white;
+        }
+
+        .btn-gold {
+            background: var(--usj-gold);
+            border: none;
+            color: white;
+        }
+
+        .btn-gold:hover {
+            background: #b89628;
+            color: white;
+        }
+        
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+        }
+        
+        /* Print styles */
+        @media print {
+            .navbar, .sync-btn, .no-print, #periodSelector {
+                display: none !important;
+            }
+            body {
+                background: white !important;
+            }
+            .stat-card {
+                break-inside: avoid;
+                box-shadow: none !important;
+                border: 1px solid #dee2e6 !important;
+            }
+            .chart-container {
+                break-inside: avoid;
+                page-break-inside: avoid;
+                box-shadow: none !important;
+                border: 1px solid #dee2e6 !important;
+            }
+            #map {
+                display: none;
+            }
+            .expiring-alert {
+                background: white !important;
+                border: 1px solid #dc3545 !important;
+            }
+            /* Show detailed expiry lists in print */
+            .print-expiry-lists {
+                display: block !important;
+                margin-top: 30px;
+                page-break-inside: avoid;
+            }
+            .print-expiry-lists h3 {
+                color: #1a365d;
+                border-bottom: 2px solid #1a365d;
+                padding-bottom: 10px;
+                margin-top: 30px;
+                font-size: 16px;
+            }
+            .print-expiry-lists table {
+                width: 100%;
+                font-size: 11px;
+                border-collapse: collapse;
+                margin-bottom: 20px;
+            }
+            .print-expiry-lists th {
+                background: #f8f9fa;
+                padding: 8px;
+                text-align: left;
+                border: 1px solid #dee2e6;
+                font-size: 10px;
+            }
+            .print-expiry-lists td {
+                padding: 6px 8px;
+                border: 1px solid #dee2e6;
+            }
+            .print-expiry-lists .period-30 { color: #dc3545; font-weight: bold; }
+            .print-expiry-lists .period-60 { color: #fd7e14; font-weight: bold; }
+            .print-expiry-lists .period-90 { color: #ffc107; font-weight: bold; }
+            .print-expiry-lists .period-180 { color: #17a2b8; font-weight: bold; }
+        }
+        
+        /* Hidden by default, shown only in print */
+        .print-expiry-lists {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-dark mb-4">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">🎓 USJ MOU Dashboard</span>
+            <div class="d-flex gap-2 align-items-center">
+                <span class="text-light small" id="last-sync-display">Last sync: -</span>
+                {% if current_user.role == 'admin' %}
+                <button class="btn sync-btn" onclick="location.href='{{ prefix }}/upload-csv'">
+                    📁 Upload CSV
+                </button>
+                {% endif %}
+                <button class="btn sync-btn" onclick="exportPDF()">
+                    📄 Export PDF
+                </button>
+                <a href="{{ prefix }}/manage" class="btn sync-btn">
+                    {% if current_user.role in ['admin', 'editor'] %}&#128203; Manage MOUs{% else %}&#128269; Search MOUs{% endif %}
+                </a>
+                {% if current_user.role == 'admin' %}
+                <a href="{{ prefix }}/admin/faculties" class="btn sync-btn">
+                    &#127891; Faculties
+                </a>
+                <a href="{{ prefix }}/admin/users" class="btn sync-btn">
+                    👤 Manage Users
+                </a>
+                <a href="{{ prefix }}/admin/settings" class="btn sync-btn">
+                    &#9881;&#65039; Settings
+                </a>
+                {% endif %}
+                {% if current_user.role == 'editor' %}
+                <a href="{{ prefix }}/faculties" class="btn sync-btn">
+                    &#127891; My Faculties
+                </a>
+                {% endif %}
+                {% if current_user.is_authenticated %}
+                <span class="text-light">
+                    <span class="badge bg-{{ 'danger' if current_user.role == 'admin' else 'warning' if current_user.role == 'editor' else 'secondary' }}" style="font-size: 0.75rem;">
+                        {{ current_user.role|upper }}
+                    </span>
+                    {{ current_user.full_name or current_user.username }}
+                </span>
+                <a href="{{ prefix }}/logout" class="btn btn-outline-light btn-sm">Logout</a>
+                {% else %}
+                <a href="{{ prefix }}/login" class="btn btn-gold btn-sm">&#10149; Login</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container-fluid px-4">
+        <!-- Stats Row -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3 col-sm-6">
+                <a href="{{ prefix }}/manage" class="stat-link">
+                <div class="card stat-card">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stat-value" id="total-mous">-</div>
+                            <div class="stat-label">Total MOUs</div>
+                        </div>
+                        <div class="stat-icon">📄</div>
+                    </div>
+                </div>
+                </a>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <a href="{{ prefix }}/manage?status=ACTIVE" class="stat-link">
+                <div class="card stat-card">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stat-value" id="active-mous">-</div>
+                            <div class="stat-label">Active</div>
+                        </div>
+                        <div class="stat-icon">✅</div>
+                    </div>
+                </div>
+                </a>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <a href="{{ prefix }}/manage?expiry_status=90" class="stat-link">
+                <div class="card stat-card">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stat-value" id="expiring-mous">-</div>
+                            <div class="stat-label">Expiring (90 days)</div>
+                        </div>
+                        <div class="stat-icon">⚠️</div>
+                    </div>
+                </div>
+                </a>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="card stat-card">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stat-value" id="countries-count">-</div>
+                            <div class="stat-label">Countries</div>
+                        </div>
+                        <div class="stat-icon">🌍</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Secondary Stats Row -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3 col-sm-6">
+                <a href="{{ prefix }}/manage?expiry_status=60" class="stat-link">
+                <div class="card stat-card" id="card-expiring-60" data-bs-toggle="tooltip" data-bs-placement="top" title="Loading...">
+                    <div class="card-body text-center">
+                        <div class="stat-value" id="expiring-60">-</div>
+                        <div class="stat-label">Expiring (60 days)</div>
+                    </div>
+                </div>
+                </a>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <a href="{{ prefix }}/manage?portuguese=true" class="stat-link">
+                <div class="card stat-card" id="card-portuguese" data-bs-toggle="tooltip" data-bs-placement="top" title="Portuguese-speaking countries (Portugal, Brazil, Angola, Mozambique, etc.)">
+                    <div class="card-body text-center">
+                        <div class="stat-value" id="portuguese-mous">-</div>
+                        <div class="stat-label">Portuguese-Speaking</div>
+                    </div>
+                </div>
+                </a>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <a href="{{ prefix }}/manage?asean=true" class="stat-link">
+                <div class="card stat-card" id="card-asean" data-bs-toggle="tooltip" data-bs-placement="top" title="ASEAN member countries (Philippines, Indonesia, Thailand, Vietnam, Malaysia, Singapore, etc.)">
+                    <div class="card-body text-center">
+                        <div class="stat-value" id="asean-mous">-</div>
+                        <div class="stat-label">ASEAN</div>
+                    </div>
+                </div>
+                </a>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <a href="{{ prefix }}/manage?mobility=true" class="stat-link">
+                <div class="card stat-card" id="card-mobility" data-bs-toggle="tooltip" data-bs-placement="top" title="MOUs with student/faculty exchange programs">
+                    <div class="card-body text-center">
+                        <div class="stat-value" id="mobility-mous">-</div>
+                        <div class="stat-label">With Mobility</div>
+                    </div>
+                </div>
+                </a>
+            </div>
+        </div>
+        
+        {% if current_user.is_authenticated %}
+        <!-- Charts Row 1 -->
+        <div class="row g-3 mb-4">
+            <div class="col-lg-8">
+                <div class="chart-container">
+                    <h5 class="mb-3">📍 MOUs by Country (Top 15)</h5>
+                    <div class="chart-wrapper">
+                        <canvas id="countryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="chart-container">
+                    <h5 class="mb-3">📊 Status Distribution</h5>
+                    <div class="chart-wrapper">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row 2 -->
+        <div class="row g-3 mb-4">
+            <div class="col-lg-6">
+                <div class="chart-container">
+                    <h5 class="mb-3">📅 Expiry Timeline (Next 12 Months)</h5>
+                    <div class="chart-wrapper">
+                        <canvas id="timelineChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="chart-container">
+                    <h5 class="mb-3">🌐 Regional Distribution</h5>
+                    <div class="chart-wrapper">
+                        <canvas id="regionalChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Map Row -->
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div class="chart-container">
+                    <h5 class="mb-3">🗺️ World Map - MOU Distribution</h5>
+                    <div id="map"></div>
+                </div>
+            </div>
+        </div>
+
+        {% if current_user.is_authenticated %}
+        <!-- Expiring Soon Section -->
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div class="card stat-card expiring-alert">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="card-title text-danger mb-0">⚠️ MOUs Expiring Soon</h5>
+                            <select class="form-select" id="periodSelector" style="width: auto;" onchange="loadExpiringList()">
+                                <option value="30">Next 30 days</option>
+                                <option value="60">Next 60 days</option>
+                                <option value="90" selected>Next 90 days</option>
+                                <option value="180">Next 180 days</option>
+                            </select>
+                        </div>
+                        <div id="expiring-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Print-only: Detailed Expiry Lists by Period -->
+        <div class="print-expiry-lists">
+            <h2 style="color: #1a365d; border-bottom: 3px solid #1a365d; padding-bottom: 15px;">📅 Complete Expiry Schedule</h2>
+            <div id="print-list-30"></div>
+            <div id="print-list-60"></div>
+            <div id="print-list-90"></div>
+            <div id="print-list-180"></div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        const BASE = '{{ prefix }}';
+        const FULL_DASHBOARD = {{ 'true' if current_user.is_authenticated else 'false' }};
+        // Country code to coordinates mapping
+        const countryCoordinates = {
+            'Argentina': [-38.416, -63.616],
+            'Angola': [-11.202, 17.873],
+            'Australia': [-25.274, 133.775],
+            'Austria': [47.516, 14.550],
+            'Bangladesh': [23.684, 90.356],
+            'Belgium': [50.503, 4.469],
+            'Brazil': [-14.235, -51.925],
+            'Cape Verde': [16.538, -23.041],
+            'Canada': [56.130, -106.346],
+            'Cambodia': [12.565, 104.990],
+            'Colombia': [4.570, -74.297],
+            'Croatia': [45.1, 15.2],
+            'Democratic Republic of Congo': [-4.038, 21.758],
+            'East Timor': [-8.874, 125.727],
+            'England': [52.355, -1.174],
+            'France': [46.227, 2.213],
+            'Georgia': [42.315, 43.356],
+            'Germany': [51.165, 10.451],
+            'Hong Kong SAR (CHINA)': [22.319, 114.169],
+            'India': [20.593, 78.962],
+            'Indonesia': [-0.789, 113.921],
+            'Italy': [41.871, 12.567],
+            'Japan': [36.204, 138.252],
+            'Korea': [35.907, 127.766],
+            'Macedonia': [41.608, 21.745],
+            'Malaysia': [4.210, 101.975],
+            'Mexico': [23.634, -102.552],
+            'Mozambique': [-18.665, 35.529],
+            'Philippines': [12.879, 121.774],
+            'Poland': [51.919, 19.147],
+            'Portugal': [39.399, -8.224],
+            'Russia': [61.524, 105.318],
+            'Rwanda': [-1.940, 29.873],
+            'Spain': [40.463, -3.749],
+            'Slovakia': [48.669, 19.699],
+            'Taiwan': [23.697, 120.960],
+            'Thailand': [15.870, 100.992],
+            'United States of America': [37.090, -95.712],
+            'Vietnam': [14.058, 108.277],
+            'British Virgin Islands': [18.420, -64.639],
+            'Papa New Guinea': [-6.314, 143.955],
+            'Romania': [45.943, 24.966]
+        };
+
+        let map = null;
+        let markers = [];
+        let charts = {
+            country: null,
+            status: null,
+            timeline: null,
+            regional: null
+        };
+
+        // Initialize the dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStats();
+            initMap();
+            if (FULL_DASHBOARD) {
+                loadCharts();
+                loadExpiringList();
+                loadPrintLists();
+            } else {
+                const c60 = document.getElementById('card-expiring-60');
+                const c90 = document.getElementById('expiring-mous') ? document.getElementById('expiring-mous').closest('.stat-card') : null;
+                if (c60) c60.setAttribute('title', 'Log in to see which MOUs are expiring');
+                if (c90) c90.setAttribute('title', 'Log in to see which MOUs are expiring');
+            }
+        });
+
+        // Load statistics
+        async function loadStats() {
+            try {
+                const response = await fetch(BASE + '/api/stats');
+                const stats = await response.json();
+                
+                document.getElementById('total-mous').textContent = stats.total;
+                document.getElementById('active-mous').textContent = stats.active;
+                document.getElementById('expiring-mous').textContent = stats.expiring_90;
+                document.getElementById('expiring-60').textContent = stats.expiring_60;
+                document.getElementById('portuguese-mous').textContent = stats.portuguese_speaking;
+                document.getElementById('asean-mous').textContent = stats.asean;
+                document.getElementById('mobility-mous').textContent = stats.mobility;
+                
+                // Update Last Sync in navbar
+                if (stats.last_sync) {
+                    const syncDate = new Date(stats.last_sync);
+                    document.getElementById('last-sync-display').textContent = 'Last sync: ' + syncDate.toLocaleString();
+                }
+                
+                // Load country count for map
+                const countryData = await fetch(BASE + '/api/mous-by-country').then(r => r.json());
+                document.getElementById('countries-count').textContent = countryData.length;
+                
+                // Load expiring institutions for tooltips
+                if (FULL_DASHBOARD) {
+                    loadExpiringTooltips();
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+        
+        // Load expiring institutions for tooltips
+        async function loadExpiringTooltips() {
+            try {
+                const [exp60, exp90] = await Promise.all([
+                    fetch(BASE + '/api/expiring-soon?days=60').then(r => r.json()),
+                    fetch(BASE + '/api/expiring-soon?days=90').then(r => r.json())
+                ]);
+                
+                // 60 days tooltip
+                const exp60Card = document.getElementById('card-expiring-60');
+                if (exp60Card && exp60.length > 0) {
+                    const names = exp60.map(m => {
+                        const inst = m.institution ? m.institution.replace(/https?:\/\/[^\s]*/g, '').trim() : 'Unknown';
+                        return `• ${inst} (${m.country})`;
+                    }).slice(0, 8).join('\n');
+                    const more = exp60.length > 8 ? `\n\n... and ${exp60.length - 8} more` : '';
+                    exp60Card.setAttribute('title', `${exp60.length} MOUs expiring within 60 days:\n\n${names}${more}`);
+                } else if (exp60Card) {
+                    exp60Card.setAttribute('title', 'No MOUs expiring within 60 days');
+                }
+                
+                // 90 days tooltip (for the main stat card in top row)
+                const exp90Card = document.getElementById('expiring-mous')?.closest('.stat-card');
+                if (exp90Card && exp90.length > 0) {
+                    const names = exp90.map(m => {
+                        const inst = m.institution ? m.institution.replace(/https?:\/\/[^\s]*/g, '').trim() : 'Unknown';
+                        return `• ${inst} (${m.country})`;
+                    }).slice(0, 8).join('\n');
+                    const more = exp90.length > 8 ? `\n\n... and ${exp90.length - 8} more` : '';
+                    exp90Card.setAttribute('title', `${exp90.length} MOUs expiring within 90 days:\n\n${names}${more}`);
+                } else if (exp90Card) {
+                    exp90Card.setAttribute('title', 'No MOUs expiring within 90 days');
+                }
+                
+                // Initialize Bootstrap tooltips
+                const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                tooltipTriggerList.map(function (tooltipTriggerEl) {
+                    return new bootstrap.Tooltip(tooltipTriggerEl);
+                });
+            } catch (error) {
+                console.error('Error loading tooltips:', error);
+            }
+        }
+
+        // Load all charts
+        async function loadCharts() {
+            await loadCountryChart();
+            await loadStatusChart();
+            await loadTimelineChart();
+            await loadRegionalChart();
+        }
+
+        // Country bar chart
+        async function loadCountryChart() {
+            try {
+                const response = await fetch(BASE + '/api/mous-by-country');
+                const data = await response.json();
+                
+                const top15 = data.slice(0, 15);
+                const total = top15.reduce((sum, d) => sum + d.count, 0);
+                const ctx = document.getElementById('countryChart').getContext('2d');
+                
+                // Destroy existing chart if any
+                if (charts.country) {
+                    charts.country.destroy();
+                }
+                
+                charts.country = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: top15.map(d => d.country.length > 20 ? d.country.substring(0, 18) + '...' : d.country),
+                        datasets: [{
+                            label: 'Number of MOUs',
+                            data: top15.map(d => d.count),
+                            backgroundColor: '#1a365d',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const count = context.raw;
+                                        const percentage = ((count / total) * 100).toFixed(1);
+                                        return `${count} MOUs (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading country chart:', error);
+            }
+        }
+
+        // Status pie chart
+        async function loadStatusChart() {
+            try {
+                const response = await fetch(BASE + '/api/mous-by-status');
+                const data = await response.json();
+                
+                const ctx = document.getElementById('statusChart').getContext('2d');
+                
+                // Destroy existing chart if any
+                if (charts.status) {
+                    charts.status.destroy();
+                }
+                
+                charts.status = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.map(d => (d.status || 'Unknown').replace('_', ' ')),
+                        datasets: [{
+                            data: data.map(d => d.count),
+                            backgroundColor: ['#28a745', '#dc3545', '#6c757d']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom' }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading status chart:', error);
+            }
+        }
+
+        // Expiry timeline chart
+        async function loadTimelineChart() {
+            try {
+                const response = await fetch(BASE + '/api/expiry-timeline');
+                const data = await response.json();
+                
+                const ctx = document.getElementById('timelineChart').getContext('2d');
+                
+                // Destroy existing chart if any
+                if (charts.timeline) {
+                    charts.timeline.destroy();
+                }
+                
+                charts.timeline = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.map(d => d.month),
+                        datasets: [{
+                            label: 'MOUs Expiring',
+                            data: data.map(d => d.count),
+                            borderColor: '#D4AF37',
+                            backgroundColor: 'rgba(212, 175, 55, 0.2)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading timeline chart:', error);
+            }
+        }
+
+        // Regional distribution chart
+        async function loadRegionalChart() {
+            try {
+                const response = await fetch(BASE + '/api/mous-by-country');
+                const countryData = await response.json();
+                
+                // Group by region (simplified)
+                const regions = {
+                    'Europe': ['Portugal', 'Spain', 'France', 'Germany', 'Italy', 'Austria', 'Belgium', 'Croatia', 'Poland', 'Hungary', 'Russia', 'Slovakia', 'Romania', 'Georgia', 'England'],
+                    'Asia': ['Philippines', 'Indonesia', 'Thailand', 'Vietnam', 'India', 'Japan', 'Korea', 'Taiwan', 'Cambodia', 'Bangladesh', 'Malaysia', 'Hong Kong SAR (CHINA)'],
+                    'Americas': ['Brazil', 'Argentina', 'Colombia', 'Mexico', 'Canada', 'United States of America'],
+                    'Africa': ['Angola', 'Mozambique', 'Cape Verde', 'Rwanda', 'Democratic Republic of Congo'],
+                    'Oceania': ['Australia', 'Papa New Guinea']
+                };
+                
+                const regionCounts = {};
+                countryData.forEach(item => {
+                    for (const [region, countries] of Object.entries(regions)) {
+                        if (countries.some(c => item.country.includes(c))) {
+                            regionCounts[region] = (regionCounts[region] || 0) + item.count;
+                            break;
+                        }
+                    }
+                });
+                
+                const ctx = document.getElementById('regionalChart').getContext('2d');
+                
+                // Destroy existing chart if any
+                if (charts.regional) {
+                    charts.regional.destroy();
+                }
+                
+                charts.regional = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: Object.keys(regionCounts),
+                        datasets: [{
+                            data: Object.values(regionCounts),
+                            backgroundColor: ['#1a365d', '#D4AF37', '#28a745', '#dc3545', '#6f42c1']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom' }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading regional chart:', error);
+            }
+        }
+
+        // Initialize map
+        function initMap() {
+            if (map) {
+                map.remove();
+            }
+            
+            map = L.map('map').setView([20, 0], 2);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            loadMapData();
+        }
+
+        // Load map markers
+        async function loadMapData() {
+            try {
+                const response = await fetch(BASE + '/api/map-data');
+                const data = await response.json();
+
+                // Clear existing markers
+                markers.forEach(marker => map.removeLayer(marker));
+                markers = [];
+
+                data.forEach(item => {
+                    const coords = countryCoordinates[item.country];
+                    if (coords) {
+                        const marker = L.circleMarker(coords, {
+                            radius: Math.min(Math.sqrt(item.total) * 4, 20),
+                            fillColor: item.active > 0 ? '#1a365d' : '#dc3545',
+                            color: '#fff',
+                            weight: 2,
+                            opacity: 1,
+                            fillOpacity: 0.7
+                        });
+
+                        // Build institutions list
+                        let institutionsHtml = '';
+                        if (item.institutions && item.institutions.length > 0) {
+                            institutionsHtml = '<div style="max-height: 300px; overflow-y: auto; margin-top: 10px;">' +
+                                '<strong style="font-size: 12px;">Institutions (' + item.institutions.length + '):</strong>' +
+                                '<ul style="margin: 5px 0 0 0; padding-left: 15px; font-size: 11px;">';
+                            
+                            item.institutions.forEach((inst, idx) => {
+                                if (idx < 10) {  // Show first 10 institutions
+                                    const statusColor = inst.status === 'ACTIVE' ? 'green' : 'red';
+                                    const expiryInfo = inst.expiry_date ? 
+                                        `<br><span style="color: #666; font-size: 10px;">Expires: ${new Date(inst.expiry_date).toLocaleDateString()}</span>` : '';
+                                    
+                                    institutionsHtml += `
+                                        <li style="margin-bottom: 4px;">
+                                            <span style="color: ${statusColor}; font-weight: bold;">${inst.name}</span>
+                                            ${expiryInfo}
+                                        </li>
+                                    `;
+                                }
+                            });
+                            
+                            if (item.institutions.length > 10) {
+                                institutionsHtml += `<li style="color: #666; font-style: italic;">... and ${item.institutions.length - 10} more</li>`;
+                            }
+                            
+                            institutionsHtml += '</ul></div>';
+                        }
+
+                        marker.bindPopup(`
+                            <div style="min-width: 250px; max-width: 350px;">
+                                <strong style="font-size: 14px; color: #1a365d;">${item.country}</strong><br>
+                                <span style="font-size: 12px;">
+                                    Total MOUs: <strong>${item.total}</strong> | 
+                                    Active: <strong style="color: green;">${item.active}</strong>
+                                </span>
+                                ${institutionsHtml}
+                            </div>
+                        `);
+
+                        marker.addTo(map);
+                        markers.push(marker);
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading map data:', error);
+            }
+        }
+
+        // Load expiring MOUs list
+        async function loadExpiringList() {
+            try {
+                const days = document.getElementById('periodSelector').value;
+                const response = await fetch(BASE + `/api/expiring-soon?days=${days}`);
+                const data = await response.json();
+                
+                const container = document.getElementById('expiring-list');
+                
+                if (data.length === 0) {
+                    container.innerHTML = '<p class="text-muted mb-0">No MOUs expiring within the selected period.</p>';
+                    return;
+                }
+                
+                const today = new Date();
+                
+                let html = `<div class="alert alert-info mb-2"><strong>Showing:</strong> MOUs expiring in the next ${days} days (${data.length} total)</div>`;
+                html += '<div class="table-responsive"><table class="table table-sm table-hover"><thead><tr><th>Institution</th><th>Country</th><th>Expiry Date</th><th>Days Left</th><th>Notice Period</th></tr></thead><tbody>';
+                
+                data.forEach(mou => {
+                    const expiryDate = new Date(mou.expiry_date);
+                    const daysLeft = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+                    const alertClass = daysLeft <= 30 ? 'text-danger fw-bold' : daysLeft <= 60 ? 'text-warning fw-bold' : 'text-secondary';
+                    
+                    const institutionName = mou.institution ? 
+                        mou.institution.replace(/https?:\/\/[^\s]*/g, '').trim() : 'Unknown';
+                    
+                    html += `
+                        <tr>
+                            <td>${institutionName.substring(0, 50)}${institutionName.length > 50 ? '...' : ''}</td>
+                            <td>${mou.country}</td>
+                            <td>${new Date(mou.expiry_date).toLocaleDateString()}</td>
+                            <td class="${alertClass}">${daysLeft} days</td>
+                            <td>${mou.notice_period || 'N/A'}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table></div>';
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading expiring list:', error);
+                document.getElementById('expiring-list').innerHTML = '<p class="text-muted">Error loading data</p>';
+            }
+        }
+        
+        // Load print-only expiry lists
+        async function loadPrintLists() {
+            try {
+                const response = await fetch(BASE + '/api/expiring-by-period');
+                const data = await response.json();
+                
+                const periods = [
+                    { key: '30', label: 'Within 30 Days (Urgent)', class: 'period-30', color: '#dc3545' },
+                    { key: '60', label: '30-60 Days (High Priority)', class: 'period-60', color: '#fd7e14' },
+                    { key: '90', label: '60-90 Days (Medium Priority)', class: 'period-90', color: '#ffc107' },
+                    { key: '180', label: '90-180 Days (Planning)', class: 'period-180', color: '#17a2b8' }
+                ];
+                
+                const today = new Date();
+                
+                periods.forEach(period => {
+                    const container = document.getElementById(`print-list-${period.key}`);
+                    const mous = data[period.key] || [];
+                    
+                    if (mous.length === 0) {
+                        container.innerHTML = '';
+                        return;
+                    }
+                    
+                    let html = `
+                        <h3 style="color: ${period.color};">${period.label} (${mous.length})</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 40%;">Institution</th>
+                                    <th>Country</th>
+                                    <th>Expiry Date</th>
+                                    <th>Days Left</th>
+                                    <th>Notice</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    mous.forEach(mou => {
+                        const expiryDate = new Date(mou.expiry_date);
+                        const daysLeft = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+                        const institutionName = mou.institution ? 
+                            mou.institution.replace(/https?:\/\/[^\s]*/g, '').trim() : 'Unknown';
+                        
+                        html += `
+                            <tr>
+                                <td>${institutionName.substring(0, 60)}${institutionName.length > 60 ? '...' : ''}</td>
+                                <td>${mou.country}</td>
+                                <td>${new Date(mou.expiry_date).toLocaleDateString()}</td>
+                                <td class="${period.class}">${daysLeft}</td>
+                                <td>${mou.notice_period || 'N/A'}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</tbody></table>';
+                    container.innerHTML = html;
+                });
+            } catch (error) {
+                console.error('Error loading print lists:', error);
+            }
+        }
+
+        // Export dashboard as PDF using browser print
+        function exportPDF() {
+            window.print();
+        }
+    </script>
+</body>
+</html>
