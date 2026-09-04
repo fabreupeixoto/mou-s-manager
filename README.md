@@ -4,123 +4,152 @@ A web analytics dashboard for tracking University of Saint Joseph's Memoranda of
 
 ## Features
 
-- 📊 **Analytics Dashboard** - Real-time statistics and KPIs
-- 📈 **Interactive Charts** - Country distribution, status breakdown, expiry timeline
-- 🗺️ **World Map** - OpenStreetMap visualization with MOU pins per country
-- ⚠️ **Expiry Alerts** - Email notifications for MOUs expiring within 3 months
-- 📁 **CSV Upload** - Easy drag-and-drop CSV import (no Google API needed)
-- 📄 **PDF Export** - Download dashboard analytics as PDF report
-- 🔄 **Google Sheets Sync** - Optional live data synchronization
+- Analytics Dashboard - Real-time statistics and KPIs
+- Interactive Charts - Country distribution, status breakdown, expiry timeline
+- World Map - OpenStreetMap visualization with MOU pins per country
+- Expiry Alerts - Email notifications for MOUs expiring within 3 months
+- CSV Upload - Easy drag-and-drop CSV import (no Google API needed)
+- PDF Export - Download dashboard analytics as PDF report
+- Google Sheets Sync - Optional live data synchronization
 
-## Setup Instructions
-
-### 1. Install Dependencies
+## Quick Start (Development)
 
 ```bash
-cd mou-dashboard
 pip install -r requirements.txt
-```
-
-### 2. Google Sheets API Setup
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
-3. Enable the **Google Sheets API**
-4. Create credentials (Service Account)
-5. Download the JSON key file and save as `credentials.json` in the project folder
-6. Share your Google Sheet with the service account email (found in the JSON file)
-
-### 3. Configure Environment Variables
-
-Copy the example environment file and fill in your details:
-
-```bash
 cp .env.example .env
-```
-
-Edit `.env` with your credentials:
-
-```env
-# Google Sheets API Credentials
-GOOGLE_SERVICE_ACCOUNT_FILE=credentials.json
-GOOGLE_SPREADSHEET_ID=19u0zXbaZqOdBNkuNEuIHys7UXggGN73-
-
-# Email Configuration (SMTP)
-SMTP_SERVER=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=your-email@gmail.com
-SMTP_PASSWORD=your-app-password  # Use App Password, not regular password
-SMTP_FROM=your-email@gmail.com
-SMTP_TO=recipient@example.com
-
-# Flask
-SECRET_KEY=your-secret-key-here
-FLASK_ENV=development
-```
-
-#### Gmail App Password Setup
-
-If using Gmail:
-1. Go to your Google Account settings
-2. Enable 2-Factor Authentication
-3. Generate an App Password at [https://myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
-4. Use this password in `SMTP_PASSWORD`
-
-### 4. Run the Application
-
-```bash
+# Edit .env with your settings
 python app.py
 ```
 
-Access the dashboard at: **http://localhost:5001**
+Access at: **http://localhost:5001**
 
-## Using the Dashboard
+## Production Deployment
 
-### Upload CSV Data
+### Automated (Recommended)
 
-1. Click **📁 Upload CSV** button in the dashboard
-2. Drag and drop your CSV file or click to browse
-3. Click **📥 Import Data**
-4. New MOUs will be added to the database
+```bash
+git clone git@github.com:fabreupeixoto/mou-s-manager.git /var/www/mou-dashboard
+cd /var/www/mou-dashboard
+chmod +x deploy.sh
+sudo ./deploy.sh your-domain.com
+```
 
-**To export CSV from Google Sheets:**
-- Open your Google Sheet
-- Click **File** → **Download** → **Comma Separated Values (.csv)**
+### Manual Steps
 
-### Export PDF Report
+1. **Install dependencies:**
+   ```bash
+   sudo apt update
+   sudo apt install -y python3 python3-pip python3-venv nginx postgresql postgresql-contrib libpq-dev
+   ```
 
-1. Click **📄 Export PDF** button in the dashboard
-2. In the print dialog, select **"Save as PDF"** as destination
-3. Choose **Landscape** orientation for best results
-4. Click **Save**
+2. **Create virtual environment:**
+   ```bash
+   cd /var/www/mou-dashboard
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements-prod.txt
+   ```
 
-**No installation required!** Uses your browser's built-in print-to-PDF feature.
+3. **Configure environment:**
+   ```bash
+   cp .env.example .env
+   nano .env  # Set SECRET_KEY, DATABASE_URL, SMTP credentials
+   ```
 
-**Tip:** Wait for all charts to load before exporting for best results.
+4. **Set up PostgreSQL:**
+   ```bash
+   sudo -u postgres psql -c "CREATE USER mou_user WITH PASSWORD 'your-password';"
+   sudo -u postgres psql -c "CREATE DATABASE mou_dashboard OWNER mou_user;"
+   # Update DATABASE_URL in .env
+   ```
 
-### Email Notifications
+5. **Initialize database:**
+   ```bash
+   python3 -c "from app import db, app; app.app_context().push(); db.create_all()"
+   ```
 
-Configure SMTP in `.env` to receive daily expiry alerts at 9 AM.
+6. **Create uploads directory:**
+   ```bash
+   mkdir -p uploads
+   chown www-data:www-data uploads
+   ```
 
-See "Email Configuration" section above.
+7. **Configure systemd:**
+   ```bash
+   sudo cp mou-dashboard.service /etc/systemd/system/
+   sudo systemctl enable mou-dashboard
+   sudo systemctl start mou-dashboard
+   ```
+
+8. **Configure nginx:**
+   ```bash
+   sudo cp nginx.conf /etc/nginx/sites-available/mou-dashboard
+   sudo ln -sf /etc/nginx/sites-available/mou-dashboard /etc/nginx/sites-enabled/
+   sudo nginx -t && sudo systemctl restart nginx
+   ```
+
+9. **Set up SSL:**
+   ```bash
+   sudo certbot --nginx -d your-domain.com
+   ```
+
+## Google Sheets API Setup (Optional)
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Enable the **Google Sheets API**
+3. Create a Service Account and download the JSON key
+4. Save as `credentials.json` in the project folder
+5. Share your Google Sheet with the service account email
+
+## Email Notifications
+
+Configure SMTP in `.env`:
+
+```env
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_FROM=your-email@gmail.com
+SMTP_TO=recipient@example.com
+```
+
+For Gmail, use an [App Password](https://myaccount.google.com/apppasswords) (2FA required).
+
+Notifications run daily at 9:00 AM via cron. Install with:
+```bash
+crontab mou-dashboard.cron
+```
 
 ## Project Structure
 
 ```
 mou-dashboard/
-├── app.py                 # Main Flask application
-├── requirements.txt       # Python dependencies
-├── .env.example          # Environment variables template
-├── .env                  # Your configuration (create from .env.example)
-├── credentials.json      # Google Sheets API credentials (optional)
-├── mou.db                # SQLite database (auto-created)
-├── import_csv.py         # CSV import script (command line)
-├── test_smtp.py          # Email test script
-├── test_sheets.py        # Google Sheets test script
+├── app.py                    # Main Flask application
+├── reports.py                # PDF export and analytics
+├── import_csv.py             # CSV import script
+├── migrate_to_pg.py          # SQLite to PostgreSQL migration
+├── seed_test_data.py         # Test data seeder
+├── send_notifications.py     # Email notification sender
+├── test_smtp.py              # SMTP configuration test
+├── requirements.txt          # Development dependencies
+├── requirements-prod.txt     # Production dependencies
+├── .env.example              # Environment variables template
+├── deploy.sh                 # Automated deployment script
+├── mou-dashboard.service     # Systemd service unit
+├── mou-dashboard.cron        # Cron job for notifications
+├── nginx.conf                # Nginx configuration
 ├── templates/
-│   ├── dashboard.html    # Dashboard UI
-│   └── upload_csv.html   # CSV upload page
-└── static/               # Static files (if needed)
+│   ├── dashboard.html        # Main dashboard UI
+│   ├── login.html            # Login page
+│   ├── manage.html           # MOU management page
+│   ├── upload_csv.html       # CSV upload page
+│   ├── admin_users.html      # User administration
+│   ├── admin_faculties.html  # Faculty administration
+│   ├── admin_settings.html   # Settings page
+│   ├── faculties_list.html   # Faculties listing
+│   └── faculty_detail.html   # Faculty detail view
+└── static/                   # Static files (CSS, JS)
 ```
 
 ## API Endpoints
@@ -128,7 +157,14 @@ mou-dashboard/
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/` | GET | Main dashboard |
-| `/upload-csv` | GET/POST | CSV upload page |
+| `/login` | GET/POST | Login page |
+| `/manage` | GET | MOU management |
+| `/upload-csv` | GET/POST | CSV upload |
+| `/admin/users` | GET | User administration |
+| `/admin/faculties` | GET | Faculty administration |
+| `/admin/settings` | GET | Settings |
+| `/faculties` | GET | Faculties listing |
+| `/faculty/<id>` | GET | Faculty detail |
 | `/export-pdf` | GET | Export dashboard as PDF |
 | `/api/stats` | GET | Dashboard statistics |
 | `/api/mous-by-country` | GET | MOU count by country |
@@ -138,45 +174,14 @@ mou-dashboard/
 | `/api/expiring-soon` | GET | MOUs expiring within 3 months |
 | `/api/sync` | POST | Trigger Google Sheets sync |
 
-## Email Notifications
+## Technologies
 
-- **Schedule**: Daily at 9:00 AM
-- **Trigger**: MOUs expiring within 90 days (3 months)
-- **Content**: Table with institution, country, expiry date, days remaining, notice period
-
-To manually test email notifications:
-
-```python
-from app import send_expiry_notifications, app
-
-with app.app_context():
-    send_expiry_notifications()
-```
-
-## Technologies Used
-
-- **Backend**: Flask, SQLAlchemy, APScheduler
-- **Database**: SQLite
-- **Charts**: Chart.js
-- **Maps**: Leaflet + OpenStreetMap
-- **UI**: Bootstrap 5
-- **Data Source**: Google Sheets API
-
-## Troubleshooting
-
-### Google Sheets Connection Error
-- Ensure the service account email has access to the spreadsheet
-- Verify `GOOGLE_SPREADSHEET_ID` is correct
-- Check that `credentials.json` is in the correct location
-
-### Email Not Sending
-- Verify SMTP credentials in `.env`
-- For Gmail, ensure you're using an App Password, not your regular password
-- Check that 2FA is enabled on your Google account
-
-### Map Not Showing
-- Check browser console for JavaScript errors
-- Ensure internet connection (OpenStreetMap tiles are loaded via CDN)
+- **Backend:** Flask, SQLAlchemy, APScheduler
+- **Database:** PostgreSQL (production) / SQLite (development)
+- **Charts:** Chart.js
+- **Maps:** Leaflet + OpenStreetMap
+- **UI:** Bootstrap 5
+- **PDF:** ReportLab, Matplotlib
 
 ## License
 

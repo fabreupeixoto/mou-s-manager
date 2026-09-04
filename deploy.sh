@@ -82,6 +82,11 @@ echo "🗄️  Initializing application database..."
 python3 -c "from app import db, app; app.app_context().push(); db.create_all()"
 
 echo ""
+echo "📁 Creating uploads directory..."
+sudo mkdir -p $APP_DIR/uploads
+sudo chown $USER:$USER $APP_DIR/uploads
+
+echo ""
 echo "🔌 Configuring systemd service..."
 sudo bash -c "cat > /etc/systemd/system/$APP_NAME.service << 'EOF'
 [Unit]
@@ -108,7 +113,11 @@ sudo systemctl enable $APP_NAME
 
 echo ""
 echo "🌐 Configuring nginx..."
-DOMAIN=$(whiptail --inputbox "Enter your domain name (or press Enter for IP):" 8 78 --title "Domain Configuration" 3>&1 1>&2 2>&3)
+if [ -n "$1" ]; then
+    DOMAIN="$1"
+else
+    read -p "Enter your domain name (or press Enter for IP): " DOMAIN
+fi
 
 if [ -z "$DOMAIN" ]; then
     DOMAIN=$(hostname -I | awk '{print $1}')

@@ -92,9 +92,8 @@ def import_from_csv(csv_path):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        # Default path
-        csv_path = '/Users/Francisco/Downloads/1. In Use - USJ MOUs - ALL with Expiry Dates.xlsx - MOU (Institutions).csv'
-    else:
-        csv_path = sys.argv[1]
+        print("Usage: python import_csv.py /path/to/your/file.csv")
+        sys.exit(1)
     
+    csv_path = sys.argv[1]
     import_from_csv(csv_path)

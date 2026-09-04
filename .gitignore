@@ -25,6 +25,9 @@ uploads/
 *.zip
 *.tar.gz
 
+# Deploy directory (use root-level files instead)
+mou-dashboard-deploy/
+
 # IDE
 .vscode/
 .idea/
